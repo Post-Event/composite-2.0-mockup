@@ -94,8 +94,15 @@ The system MUST consist of:
 - Placeholder text:
   - Default: "Describe your browser task. Watch it get done."
   - When replying to thread: "Reply to Composite"
-- Close button (X icon) on right side of input
-- Stop button (square icon) visible ONLY when replying to executing thread
+- Right side buttons (in order):
+  - Stop button (square icon) - visible ONLY when replying to executing thread
+    - Tooltip: "Stop execution (⌘P)"
+  - Send button (up arrow icon) - visible ONLY when input has text (at least 1 character)
+    - Filled light orange circular button (orange-100 background)
+    - Dark gray icon (slate-700)
+    - Hover state: darker orange background (orange-200)
+    - Same functionality as pressing Enter
+  - Close button (X icon) - always visible
 - Input automatically focused when spotlight opens
 - Enter key submits command
 - Text styling: medium size, dark text on light/transparent background
@@ -137,6 +144,7 @@ The system MUST consist of:
    - Toggleable (click to show/hide)
    - Automatically untoggles when user starts typing in input field
    - No notification badge
+   - Tooltip: "Suggestions (⌘S)"
 
 2. **Chat History Tab**
    - Icon: Clock
@@ -149,6 +157,7 @@ The system MUST consist of:
      - Include threads with status = `clarification_needed` (unless dismissed)
      - Include threads with status = `success` where notification not yet dismissed
      - Exclude threads that have been viewed since last action
+   - Tooltip: "Chat History (⌘B)"
 
 **Settings Button (Replaces Settings Tab)**
 - Positioned on right side of tab bar
@@ -160,6 +169,25 @@ The system MUST consist of:
   - Green dot: Connected
   - Orange dot: Disconnected
   - ~10px diameter, circular, white border
+- Tooltip: "Settings (⌘,)"
+
+**Sharing Button**
+- Positioned on right side of tab bar (after Settings button)
+- Toggleable button to enable/disable sharing current browser tab
+- Visual states:
+  - Enabled: Orange background (#F06423), white text
+  - Disabled: Light orange background (orange-100), dark gray text (slate-600)
+- Icon behavior:
+  - **When enabled**: Displays favicon of current browser tab
+    - Fallback to globe icon (🌐) if favicon fails to load
+  - **When disabled**: Shows globe icon (🌐)
+- Button label changes based on state:
+  - **Enabled (unhovered)**: "Sharing"
+  - **Enabled (hovered)**: Shows current tab title (e.g., "hi - Google Search")
+  - **Disabled**: "Share current tab"
+- Tooltip:
+  - **When enabled**: Shows tab title with shortcut (e.g., "hi - Google Search (⌘T)")
+  - **When disabled**: "Share current tab (⌘T)"
 
 **Tab Navigation Hiding**
 - MUST be hidden when in Reply Mode (viewing specific thread conversation)
@@ -586,9 +614,15 @@ Notifications MUST be sorted by priority to ensure most urgent items appear firs
 
 **Interaction Behaviors**
 - Hover: Subtle shadow increase or border highlight
+  - Shows "Reply ⌘R" button in bottom right corner (macOS style)
+  - Button styling: Light orange background (orange-100), darker gray text (slate-700), orange border (orange-200), medium shadow
+  - Does not take up additional space (overlays on top of content)
+  - Smooth fade-in/fade-out transition
 - Click card body: Open Spotlight with thread in Reply Mode
 - Click X button: Dismiss notification (with event propagation stop)
 - Click Stop button: Stop thread execution (with event propagation stop)
+  - Tooltip: "Stop execution (⌘P)"
+  - Only visible when thread is executing
 
 ### 4.5 Notification Dismissal
 
@@ -923,7 +957,16 @@ Notifications MUST be sorted by priority to ensure most urgent items appear firs
 | `Escape` | Exit Reply Mode | In Reply Mode |
 | `⌘1` through `⌘4` | Execute suggestion 1-4 | Suggestions view visible |
 
-### 7.3 Focus Management
+### 7.3 Spotlight View Shortcuts
+
+| Shortcut | Action | Context |
+|----------|--------|---------|
+| `Cmd/Ctrl + S` | Toggle Suggestions tab | Spotlight open, not in Reply Mode |
+| `Cmd/Ctrl + B` | Toggle Chat History tab | Spotlight open, not in Reply Mode |
+| `Cmd/Ctrl + ,` | Toggle Settings modal | Spotlight open, not in Reply Mode |
+| `Cmd/Ctrl + T` | Toggle Share Current Tab | Spotlight open, not in Reply Mode |
+
+### 7.4 Focus Management
 
 **Auto-Focus Behavior**
 - Input field automatically focused when Spotlight opens
@@ -1106,6 +1149,9 @@ The system MUST support complex, multi-step tasks similar to these examples:
   replyThreadId: number/string | null,
   activeThreadId: number/string | null,
   spotlightPosition: object { x: number, y: number } | null, // null = default position
+  chromeConnected: boolean, // Connection status (green = true, orange = false)
+  sharingEnabled: boolean, // Whether tab sharing is enabled
+  currentTab: object { title: string, favicon: string }, // Current browser tab info
   
   // Thread Data
   threads: array of thread objects,

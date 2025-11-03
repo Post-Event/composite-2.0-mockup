@@ -226,6 +226,13 @@ const CompositeLogoMark = ({ className }) => (
   </svg>
 );
 
+const ArrowUpCircle = ({ className }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="16 12 12 8 8 12" />
+    <line x1="12" y1="16" x2="12" y2="8" />
+  </svg>
+);
+
 const ExternalLink = ({ className }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
     <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
@@ -244,6 +251,7 @@ export default function BrowserCopilot() {
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [chromeConnected, setChromeConnected] = useState(true); // true = green, false = orange
   const [sharingEnabled, setSharingEnabled] = useState(true); // true = enabled, false = disabled
+  const [currentTab, setCurrentTab] = useState({ title: 'hi - Google Search', favicon: 'https://www.google.com/favicon.ico' }); // Current browser tab info
   const [isReplyMode, setIsReplyMode] = useState(false); // true when replying to active thread
   const [replyThreadId, setReplyThreadId] = useState(null); // ID of thread being replied to
   const [visibleNotifications, setVisibleNotifications] = useState([]); // IDs of threads with visible notifications
@@ -352,10 +360,39 @@ export default function BrowserCopilot() {
           handleStopExecution(activeThreadId);
         }
       }
+      // Spotlight-specific shortcuts (only when spotlight is open and not in reply mode)
+      else if (showSpotlight && !isReplyMode) {
+        // Cmd + S: Toggle Suggestions
+        if (e.metaKey && e.key === 's') {
+          e.preventDefault();
+          setShowSuggestions(!showSuggestions);
+          setShowThreadsModal(false);
+          setShowSettingsModal(false);
+        }
+        // Cmd + B: Toggle Chat History
+        else if (e.metaKey && e.key === 'b') {
+          e.preventDefault();
+          setShowThreadsModal(!showThreadsModal);
+          setShowSuggestions(false);
+          setShowSettingsModal(false);
+        }
+        // Cmd + ,: Toggle Settings
+        else if (e.metaKey && e.key === ',') {
+          e.preventDefault();
+          setShowSettingsModal(!showSettingsModal);
+          setShowSuggestions(false);
+          setShowThreadsModal(false);
+        }
+        // Cmd + T: Toggle Share Current Tab
+        else if (e.metaKey && e.key === 't') {
+          e.preventDefault();
+          setSharingEnabled(!sharingEnabled);
+        }
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showSpotlight, isReplyMode, activeThreadId, replyThreadId, threads, visibleNotifications, handleStopExecution]);
+  }, [showSpotlight, isReplyMode, activeThreadId, replyThreadId, threads, visibleNotifications, handleStopExecution, showSuggestions, showThreadsModal, showSettingsModal, sharingEnabled]);
 
   useEffect(() => {
     if (showSpotlight && spotlightRef.current) {
@@ -1543,7 +1580,7 @@ export default function BrowserCopilot() {
                 return (
                   <div
                     key={threadId}
-                    className="glass-notification rounded-xl shadow-2xl border border-white/20 overflow-hidden cursor-pointer hover:shadow-3xl transition-shadow"
+                    className="relative group glass-notification rounded-xl shadow-2xl border border-white/20 overflow-hidden cursor-pointer hover:shadow-3xl transition-shadow"
                     onClick={() => openSpotlightWithThread(threadId)}
                   >
                     {/* Thread Header */}
@@ -1561,7 +1598,7 @@ export default function BrowserCopilot() {
                               handleStopExecution(threadId);
                             }}
                             className="p-1 hover:bg-[#F8F7F4] rounded transition-colors flex-shrink-0"
-                            title="Stop execution"
+                            title="Stop execution (⌘P)"
                           >
                             <Square className="w-4 h-4 text-slate-600" />
                           </button>
@@ -1586,6 +1623,13 @@ export default function BrowserCopilot() {
                         <p className="text-xs text-slate-700 leading-relaxed flex-1">
                           {thread.currentAction}
                         </p>
+                      </div>
+                    </div>
+
+                    {/* macOS-style Reply button - bottom right corner on hover */}
+                    <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                      <div className="px-2.5 py-1.5 bg-orange-100 backdrop-blur-sm rounded text-[11px] text-slate-700 font-medium shadow-md border border-orange-200">
+                        Reply ⌘R
                       </div>
                     </div>
                   </div>
@@ -1643,7 +1687,7 @@ export default function BrowserCopilot() {
                     
                     {/* Top notification - fully visible and interactive */}
                     <div
-                      className="relative glass-notification rounded-xl border border-white/20 overflow-hidden cursor-pointer hover:border-white/30 transition-all"
+                      className="relative group glass-notification rounded-xl border border-white/20 overflow-hidden cursor-pointer hover:border-white/30 transition-all"
                       style={{ 
                         zIndex: 10,
                         boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.15)',
@@ -1673,7 +1717,7 @@ export default function BrowserCopilot() {
                                 handleStopExecution(topThread.id);
                               }}
                               className="p-1 hover:bg-[#F8F7F4] rounded transition-colors flex-shrink-0"
-                              title="Stop execution"
+                              title="Stop execution (⌘P)"
                             >
                               <Square className="w-4 h-4 text-slate-600" />
                             </button>
@@ -1698,6 +1742,13 @@ export default function BrowserCopilot() {
                           <p className="text-xs text-slate-700 leading-relaxed flex-1">
                             {topThread.currentAction}
                           </p>
+                        </div>
+                      </div>
+
+                      {/* macOS-style Reply button - bottom right corner on hover */}
+                      <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                        <div className="px-2.5 py-1.5 bg-orange-100 backdrop-blur-sm rounded text-[11px] text-slate-700 font-medium shadow-md border border-orange-200">
+                          Reply ⌘R
                         </div>
                       </div>
                     </div>
@@ -2082,6 +2133,7 @@ export default function BrowserCopilot() {
                     marginTop: showSuggestions ? '-2px' : '0px',
                     paddingTop: showSuggestions ? 'calc(0.5rem + 2px)' : '0.5rem',
                   }}
+                  title="Suggestions (⌘S)"
                 >
                   <Lightbulb className="w-4 h-4 flex-shrink-0" />
                   {showSuggestions && <span>Suggestions</span>}
@@ -2106,6 +2158,7 @@ export default function BrowserCopilot() {
                     marginTop: showThreadsModal ? '-2px' : '0px',
                     paddingTop: showThreadsModal ? 'calc(0.5rem + 2px)' : '0.5rem',
                   }}
+                  title="Chat History (⌘B)"
                 >
                   <Clock className="w-4 h-4 flex-shrink-0" />
                   {showThreadsModal && <span>Chat History</span>}
@@ -2135,6 +2188,7 @@ export default function BrowserCopilot() {
                     marginTop: showSettingsModal ? '-2px' : '0px',
                     paddingTop: showSettingsModal ? 'calc(0.5rem + 2px)' : '0.5rem',
                   }}
+                  title="Settings (⌘,)"
                 >
                   <Settings className="w-4 h-4 flex-shrink-0" />
                   {showSettingsModal && <span>Settings</span>}
@@ -2147,14 +2201,40 @@ export default function BrowserCopilot() {
                 {/* Action Buttons */}
                 <button 
                   onClick={() => setSharingEnabled(!sharingEnabled)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors text-xs font-medium self-center ${
+                  className={`relative group flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors text-xs font-medium self-center ${
                     sharingEnabled 
                       ? 'bg-[#F06423] hover:bg-[#F06423]/90 text-white' 
-                      : 'bg-slate-200 hover:bg-slate-300 text-slate-600'
+                      : 'bg-orange-100 hover:bg-orange-200 text-slate-600'
                   }`}
+                  title={sharingEnabled ? `${currentTab.title} (⌘T)` : 'Share current tab (⌘T)'}
                 >
-                  <span>📤</span>
-                  Sharing
+                  {sharingEnabled ? (
+                    <>
+                      <img 
+                        src={currentTab.favicon} 
+                        alt="" 
+                        className="w-4 h-4 flex-shrink-0"
+                        onError={(e) => {
+                          // Fallback to a generic icon if favicon fails to load
+                          e.target.style.display = 'none';
+                          e.target.nextSibling.style.display = 'inline';
+                        }}
+                      />
+                      <span className="hidden">🌐</span>
+                    </>
+                  ) : (
+                    <span className="text-base leading-none">🌐</span>
+                  )}
+                  
+                  {/* Button label changes based on state */}
+                  {sharingEnabled ? (
+                    <>
+                      <span className="group-hover:hidden">Sharing</span>
+                      <span className="hidden group-hover:inline">{currentTab.title}</span>
+                    </>
+                  ) : (
+                    <span>Share current tab</span>
+                  )}
                 </button>
               </div>
             </div>
@@ -2196,12 +2276,22 @@ export default function BrowserCopilot() {
                       <button
                         onClick={() => handleStopExecution(replyThreadId)}
                         className="p-1 hover:bg-[#F8F7F4] rounded transition-colors flex-shrink-0"
-                        title="Stop execution"
+                        title="Stop execution (⌘P)"
                       >
                         <Square className="w-4 h-4 text-slate-600" />
                       </button>
                     );
                   })()}
+                  {/* Send button - only show when there's text in the input */}
+                  {input.trim() !== '' && (
+                    <button
+                      onClick={() => handleExecute(input)}
+                      className="p-0.5 bg-orange-100 hover:bg-orange-200 rounded-full transition-colors flex-shrink-0"
+                      title="Send message"
+                    >
+                      <ArrowUpCircle className="w-5 h-5 text-slate-700" />
+                    </button>
+                  )}
                   <button
                     onClick={() => setShowSpotlight(false)}
                     className="p-1 hover:bg-[#F8F7F4] rounded transition-colors"
