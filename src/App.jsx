@@ -253,6 +253,46 @@ export default function BrowserCopilot() {
   const [dismissedOngoingTasks, setDismissedOngoingTasks] = useState(new Set()); // Track which ongoing tasks have been dismissed
   const [dismissedAttentionNeeded, setDismissedAttentionNeeded] = useState(new Set()); // Track which attention needed threads have been dismissed
   const spotlightRef = useRef(null);
+  const spotlightModalRef = useRef(null);
+  const [modalPosition, setModalPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+  // Drag handlers for modal
+  const handleMouseDown = useCallback((e) => {
+    // Only allow dragging from the top area (not from buttons or inputs)
+    if (e.target.closest('input, button, textarea')) return;
+    
+    setIsDragging(true);
+    setDragStart({
+      x: e.clientX - modalPosition.x,
+      y: e.clientY - modalPosition.y
+    });
+  }, [modalPosition]);
+
+  const handleMouseMove = useCallback((e) => {
+    if (!isDragging) return;
+    
+    const newX = e.clientX - dragStart.x;
+    const newY = e.clientY - dragStart.y;
+    
+    setModalPosition({ x: newX, y: newY });
+  }, [isDragging, dragStart]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging, handleMouseMove, handleMouseUp]);
 
   // Stop execution for a specific thread - freezes current progress by saving snapshot
   const handleStopExecution = useCallback((threadId) => {
@@ -346,6 +386,13 @@ export default function BrowserCopilot() {
       setIsReplyMode(true);
     }
   }, [replyThreadId, showThreadsModal]);
+
+  // Automatically untoggle suggestions when user starts typing
+  useEffect(() => {
+    if (input.trim() !== '' && showSuggestions) {
+      setShowSuggestions(false);
+    }
+  }, [input]);
 
   const suggestions = [
     { text: 'Send reminder emails for today\'s reference check calls' },
@@ -1665,7 +1712,15 @@ export default function BrowserCopilot() {
       {/* Spotlight Modal */}
       {showSpotlight && (
         <div className="fixed inset-0 flex items-end justify-center pb-12 z-50 pointer-events-none">
-          <div className="glass-morphism rounded-xl shadow-2xl w-full max-w-xl overflow-hidden pointer-events-auto border border-white/20">
+          <div 
+            ref={spotlightModalRef}
+            onMouseDown={handleMouseDown}
+            className="glass-morphism rounded-xl shadow-2xl w-full max-w-xl overflow-hidden pointer-events-auto border border-white/20 cursor-move"
+            style={{
+              transform: `translate(${modalPosition.x}px, ${modalPosition.y}px)`,
+              transition: isDragging ? 'none' : 'transform 0.2s ease-out',
+            }}
+          >
             {/* Content Area - only show if there's content to display */}
             {(isReplyMode || showThreadsModal || showSettingsModal || showSuggestions) && (
               <div className="max-h-96 glass-content border-b border-white/10 flex flex-col">
@@ -1982,7 +2037,7 @@ export default function BrowserCopilot() {
                     </div>
                   </div>
                 </div>
-              ) : showSuggestions && input.trim() === '' ? (
+              ) : showSuggestions ? (
                 <div className="p-4 space-y-2">
                   {suggestions.map((suggestion, idx) => (
                     <button

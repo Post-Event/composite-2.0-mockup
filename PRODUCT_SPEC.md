@@ -2,7 +2,7 @@
 
 **Version:** 2.0  
 **Product Name:** Composite  
-**Product Type:** Browser-based AI Task Automation Assistant  
+**Product Type:** Autopilot for your browser
 **Last Updated:** November 2, 2025
 
 ---
@@ -28,7 +28,8 @@ The system MUST consist of:
 
 1. **Desktop Application** (Main UI)
    - Runs as standalone application on user's computer
-   - Provides command interface and task monitoring
+   - Provides command interface via Spotlight modal and task monitoring
+   - Provides settings management via standalone Settings page
    - Maintains websocket/IPC connection with browser extension
 
 2. **Browser Extension**
@@ -51,10 +52,11 @@ The system MUST consist of:
   - **Disconnected** (Orange indicator): Extension missing, browser closed, or connection lost
 
 **Connection Management Features**
-- "Rescan Browser" functionality to re-establish connection
-- "Install Extension" direct link when extension not detected
-- Connection status MUST be visible in settings area
-- Version information display for both app and extension (e.g., "App: v0.9.9", "Extension: v1.6.3")
+- Connection status visible as status dot on Settings button in Spotlight
+- Full connection details and management available in Settings page
+- "Rescan Browser" functionality to re-establish connection (if included in Settings page)
+- "Install Extension" direct link when extension not detected (if included in Settings page)
+- Version information display for both app and extension (e.g., "App: v0.9.9", "Extension: v1.6.3") may be shown in Settings page
 
 ---
 
@@ -72,9 +74,19 @@ The system MUST consist of:
 - Modal window with glass morphism effect (semi-transparent, blurred background)
 - Rounded corners for modern aesthetic
 - Maximum width constraint (approximately 600-700px)
-- Centered horizontally, positioned near bottom of viewport
+- Default position: Centered horizontally, positioned near bottom of viewport
 - Border with subtle white/light outline
 - Drop shadow for depth perception
+
+**Draggability**
+- Spotlight modal MUST be draggable by user
+- User can click and drag header/top area to reposition modal anywhere on screen
+- Default position: Bottom-center of screen (on first open or reset)
+- Position persists across sessions (remembered for next time Spotlight opens)
+- Drag cursor (move/grab) appears on hover over draggable area
+- Smooth dragging with no lag or jank
+- Modal stays within viewport bounds (cannot be dragged off-screen)
+- Optional: Snap to edges/corners for convenient positioning
 
 **Input Field**
 - Single-line text input at bottom of modal
@@ -90,7 +102,7 @@ The system MUST consist of:
 
 **Content Area (Above Input)**
 - Scrollable region with maximum height constraint
-- Displays one of three views: Suggestions, Chat History, or Settings
+- Displays one of two views: Suggestions or Chat History
 - Empty when all tabs closed
 - Glass morphism continuation for visual consistency
 
@@ -99,11 +111,11 @@ The system MUST consist of:
 **Tab Bar Positioning**
 - Located between content area and input field
 - Horizontal layout with left-aligned tabs
-- Action buttons (Sharing toggle) positioned on right side
+- Action buttons (Settings icon button) positioned on right side
 - Subtle separator line or visual break from content area
 
 **Tab Behavior**
-- Three primary tabs: Suggestions, Chat History, Settings
+- Two primary tabs: Suggestions, Chat History
 - Tabs expand on selection (show icon + label)
 - Tabs collapse when inactive (show icon only, fixed width ~40px)
 - Active tab styling:
@@ -121,7 +133,9 @@ The system MUST consist of:
 
 1. **Suggestions Tab**
    - Icon: Lightbulb
+   - Active by default when Spotlight opens
    - Toggleable (click to show/hide)
+   - Automatically untoggles when user starts typing in input field
    - No notification badge
 
 2. **Chat History Tab**
@@ -136,23 +150,16 @@ The system MUST consist of:
      - Include threads with status = `success` where notification not yet dismissed
      - Exclude threads that have been viewed since last action
 
-3. **Settings Tab**
-   - Icon: Gear/Settings
-   - Toggleable (click to show/hide)
-   - MUST display connection status indicator
-   - Status dot positioning: top-right corner of tab
-   - Status dot styling:
-     - Green dot: Connected
-     - Orange dot: Disconnected
-     - ~10px diameter, circular, white border
-
-**Sharing Toggle Button**
+**Settings Button (Replaces Settings Tab)**
 - Positioned on right side of tab bar
-- Two states:
-  - **Enabled**: Orange/accent background, white text, enabled emoji (📤)
-  - **Disabled**: Gray background, gray text, disabled appearance
-- Label: "Sharing"
-- Purpose: Controls whether task execution context/results can be shared
+- Icon: Gear/Settings icon
+- Click action: Opens standalone settings page in separate window/view
+- MUST display connection status indicator
+- Status dot positioning: top-right corner of icon
+- Status dot styling:
+  - Green dot: Connected
+  - Orange dot: Disconnected
+  - ~10px diameter, circular, white border
 
 **Tab Navigation Hiding**
 - MUST be hidden when in Reply Mode (viewing specific thread conversation)
@@ -162,9 +169,11 @@ The system MUST consist of:
 ### 3.3 Suggestions View
 
 **Display Conditions**
-- Shown when Suggestions tab active AND input field is empty
-- Hidden when user types any text in input field
+- Shown when Suggestions tab is active
+- Suggestions tab is active by default when Spotlight opens
+- Automatically becomes inactive (untoggles) when user starts typing in input field
 - Hidden when other tabs are active
+- Can be manually toggled on/off at any time via the tab button
 
 **Suggestion Items**
 - List of 4+ pre-configured example tasks
@@ -206,6 +215,10 @@ The system MUST consist of:
 | clarification_needed | Red | "Attention Needed" | Not dismissed |
 | success | Green | "Completed" | Notification not dismissed |
 | cancelled | Gray | "Cancelled" | Never show dot |
+
+**Status Determination Logic**
+- `success`: All todo list items are completed (ticked off) when execution finishes
+- `clarification_needed`: Execution has finished but not all todo list items are ticked off, and the user did not explicitly cancel the task
 
 **Thread Item Interactions**
 - Click thread item → Enter Reply Mode for that thread
@@ -318,52 +331,147 @@ The system MUST consist of:
 - Input field cleared
 - Thread remains selected in list
 
-### 3.6 Settings View
+### 3.6 Settings Page (Standalone)
 
-**Layout Structure**
-- Single content area with two sections:
-  1. User account header (top)
-  2. Settings menu grid (below)
+**Overview**
+- Settings accessed via gear icon button in Spotlight tab bar
+- Opens as separate page/window (not within Spotlight modal)
+- Full-page layout with professional settings interface
+- Persists independently from Spotlight interface
 
-**User Account Header**
-- Horizontal layout with left alignment
+**Page Layout Structure**
+
+**Header Section**
+- Fixed header at top of page
+- White background with subtle bottom border
 - Components:
-  - Avatar circle (left): Colored background with first initial of email, white text
-  - Email address (next to avatar): User's email in medium weight
-  - Connection status inline (below email): Chrome icon + status dot + status text ("Connected"/"Disconnected")
-  - Version info (inline, separated by dots): "App: v0.9.9 • Extension: v1.6.3"
-  - Action links (inline): "Rescan Browser" and "Install Extension" in orange accent color
+  - Composite logo (40px) on left
+  - "Composite Settings" title text (20px, bold)
+- Sticky positioning for scroll persistence
 
-**Settings Menu Grid**
-- 3-column grid layout
-- Equal-width square-ish buttons
-- Each button contains:
-  - Icon at top (centered)
-  - Label below icon (centered, small text)
-- Glass morphism button backgrounds
-- Hover effect: slightly lighter/more opaque background
+**Main Layout**
+- Two-column layout: Sidebar (240px) + Content area (flexible)
+- Sidebar has sticky positioning relative to header
+- Content area scrolls independently
+- White background for sidebar, light gray (#fafafa) for main content area
 
-**Menu Items (3x3 grid)**
+**Sidebar Navigation**
 
-Row 1:
-1. Profile (user icon)
-2. Billing (credit card icon)
-3. Theme (palette icon)
+Organized into sections with uppercase section headers:
 
-Row 2:
-4. Blocklist (ban/circle-slash icon)
-5. Changelog (document icon)
-6. Usage (bar chart icon)
+1. **SETTINGS Section**
+   - Profile & Privacy (user icon) - Default active page
+   - Appearance (palette icon)
+   - Blocklist (ban circle icon)
+   - Usage (bar chart icon)
 
-Row 3:
-7. Support (question mark icon)
-8. Community (users icon)
-9. Logout (logout arrow icon)
+2. **ACCOUNT Section**
+   - Manage Billing (credit card icon) - External link to Stripe
 
-**Menu Item Interaction**
-- Click opens respective settings page/modal
-- Hover shows subtle background change
-- All items are action buttons (not just informational)
+3. **RESOURCES Section**
+   - Changelog (document icon)
+   - Contact Support (help icon) - mailto link
+   - Community (users icon) - External link to Discord
+
+4. **Logout** (separate, at bottom)
+   - Logout (arrow icon)
+
+**Navigation Item Styling**
+- Active item: Orange left border, orange background tint, orange text
+- Hover: Light gray background
+- Each item shows icon + label
+- Font size: 14px, medium weight
+
+**Content Pages**
+
+**1. Profile & Privacy Page**
+- Two-tab system: "Profile" and "Other"
+- Profile tab contains:
+  - Profile Information section
+  - Form fields: First Name, Last Name, Title, Company (2-column grid)
+  - Internal Sites textarea for custom website URLs
+  - "Save Changes" primary button
+- Other tab contains:
+  - Privacy Settings section
+  - Privacy Mode toggle: "Your data will not be trained on or used to improve the product"
+
+**2. Appearance Page**
+- Theme section with dropdown selector
+- Three theme options:
+  - Light Theme (sun icon)
+  - Dark Theme (moon icon)
+  - Follow System (monitor icon)
+
+**3. Blocklist Page**
+- Section for blocked websites
+- Input field + "Add Site" button to add domains
+- Empty state: "No restricted websites yet" with icon
+- List items show domain name, date added, and "Remove" button
+- Description: "Sites added here will be blocked by Composite"
+
+**4. Usage Page**
+- Monthly usage overview: "Last 30 days of requests that resets every 30 days"
+- Usage statistics:
+  - Current usage count / limit (e.g., "1,982 / 5,000")
+  - Percentage used (e.g., "39.6%")
+  - Progress bar visualization (green)
+- Request Distribution section with chart placeholder
+
+**5. Changelog Page**
+- Version entries organized by date
+- Each entry shows:
+  - Version number and date (e.g., "0.9.9 (2025-10-26)")
+  - New Features list
+  - Improvements list
+- Scrollable list of historical versions
+
+**6. Logout Page**
+- Confirmation section
+- Warning text: "Are you sure you want to logout? You'll need to sign in again to continue using Composite."
+- Primary "Logout" button with icon
+
+**Connection Status**
+- Connection status removed from inline display in settings
+- Status indicator remains on Settings button in Spotlight (as status dot)
+- Connection management may be integrated into Profile or separate System page if needed
+
+**Visual Design**
+- Clean, modern interface with card-based sections
+- White content cards with subtle borders and rounded corners
+- Consistent spacing and typography
+- Form inputs with focus states (orange border)
+- Primary buttons use orange accent color (#F06423)
+- Responsive layout collapses sidebar on mobile
+
+**Navigation Behavior**
+- Clicking sidebar items switches content page (single-page app behavior)
+- Active page highlighted in sidebar
+- External links open in new tab/browser
+- Back to main app via window close or app navigation
+
+### 3.7 Navigation Between Spotlight and Settings
+
+**Opening Settings Page**
+- Click Settings button (gear icon) on right side of Spotlight tab bar
+- Opens settings page in separate window/view
+- Settings page is independent from Spotlight modal
+- Spotlight can remain open or be closed (product decision)
+
+**Settings Button Location**
+- Positioned on right side of tab bar in Spotlight
+- Shows gear icon
+- Displays connection status dot (green/orange) on top-right corner
+
+**Returning to Main Application**
+- Close settings window/page via browser close or navigation
+- Settings changes persist and apply to main application
+- No explicit "back to Spotlight" needed if separate window
+- May have app-level navigation if settings within same window
+
+**State Synchronization**
+- Settings changes (theme, blocklist, profile) sync immediately to main app
+- Connection status updates reflected in both Spotlight button and Settings page
+- User profile changes available to task execution context
 
 ---
 
@@ -821,17 +929,24 @@ Notifications MUST be sorted by priority to ensure most urgent items appear firs
 - Input field automatically focused when Spotlight opens
 - Focus remains on input when switching tabs
 - Focus maintained when entering/exiting Reply Mode
+- Focus NOT lost during drag operations
 
 **Tab Navigation**
 - Standard tab order through interactive elements
 - Tab bar buttons keyboard accessible
 - Thread list items keyboard navigable
 
+**Mouse/Pointer Interactions**
+- Drag cursor (move/grab) appears on draggable area
+- Clear visual feedback during drag operation
+- Smooth drag with no lag for users with motion sensitivity
+
 **Screen Reader Support**
 - Status updates announced for execution progress
 - Notification appearance announced
 - Thread status changes announced
 - Button labels clear and descriptive
+- Draggable area properly labeled for screen readers
 
 ---
 
@@ -987,10 +1102,10 @@ The system MUST support complex, multi-step tasks similar to these examples:
   input: string,
   showSuggestions: boolean,
   showThreadsModal: boolean,
-  showSettingsModal: boolean,
   isReplyMode: boolean,
   replyThreadId: number/string | null,
   activeThreadId: number/string | null,
+  spotlightPosition: object { x: number, y: number } | null, // null = default position
   
   // Thread Data
   threads: array of thread objects,
@@ -1003,9 +1118,12 @@ The system MUST support complex, multi-step tasks similar to these examples:
   dismissedOngoingTasks: Set of thread IDs,
   dismissedAttentionNeeded: Set of thread IDs,
   
-  // Settings
+  // Settings (persisted, accessed via separate settings page)
   chromeConnected: boolean,
-  sharingEnabled: boolean,
+  userProfile: object (firstName, lastName, title, company, internalSites),
+  privacyMode: boolean,
+  theme: string ('light' | 'dark' | 'system'),
+  blocklist: array of domain strings,
   userEmail: string,
   appVersion: string,
   extensionVersion: string,
@@ -1018,6 +1136,7 @@ The system MUST support complex, multi-step tasks similar to these examples:
 - User keyboard shortcuts → Toggle showSpotlight, isReplyMode
 - Tab clicks → Update active tab booleans
 - Thread clicks → Update replyThreadId, activeThreadId, isReplyMode
+- Spotlight drag → Update spotlightPosition, persist to localStorage/preferences
 
 **Thread State Updates**:
 - Command submission → Create new thread, add to threads array
@@ -1153,6 +1272,7 @@ The system MUST support complex, multi-step tasks similar to these examples:
 **UI Responsiveness**:
 - Input field typing: < 16ms latency (60fps)
 - Spotlight open/close animation: < 300ms
+- Spotlight drag operations: < 16ms per frame (60fps, smooth dragging)
 - Tab switching: < 100ms
 - Thread list rendering: < 200ms for 100+ threads
 - Notification appearance: < 100ms
@@ -1212,10 +1332,12 @@ The system MUST support complex, multi-step tasks similar to these examples:
 ### 12.2 Execution Boundaries
 
 **Blocklist Functionality**:
-- Users can specify domains/URLs that Composite should never access
+- Users can specify domains/URLs that Composite should never access via Settings page
+- Blocklist managed through dedicated Blocklist page in settings
+- Input field to add sites, list view to manage/remove sites
 - Blocklist checked before any navigation or interaction
 - Override requires explicit user approval
-- Default blocklist for sensitive sites (banking, etc.)
+- Default blocklist for sensitive sites (banking, etc.) may be pre-populated
 
 **Permission Prompts**:
 - High-risk actions require user confirmation (e.g., "Send email to 100 people?")
@@ -1253,6 +1375,7 @@ The system MUST support complex, multi-step tasks similar to these examples:
 - Auto-detect browser type
 - Link to appropriate extension store
 - Verification step with connection test
+- Connection status visible on Settings button in Spotlight (status dot indicator)
 
 ### 13.2 Tutorial System
 
@@ -1264,9 +1387,10 @@ The system MUST support complex, multi-step tasks similar to these examples:
 - Explain Reply Mode and Chat History
 
 **Help Resources**:
-- In-app help button in Settings
+- In-app help accessible from Settings page (Contact Support, Community links)
 - Link to documentation and video tutorials
 - Community forum or support chat access
+- Settings page provides access to Changelog, Support, and Community resources
 
 ---
 
@@ -1396,7 +1520,12 @@ The system MUST support complex, multi-step tasks similar to these examples:
 
 ### 19.1 Functional Testing
 - All keyboard shortcuts work as specified
-- Tab navigation behaves correctly
+- Spotlight draggability works smoothly and position persists across sessions
+- Spotlight modal cannot be dragged off-screen (stays within bounds)
+- Tab navigation behaves correctly (Suggestions and Chat History tabs)
+- Settings button opens settings page correctly
+- Settings page navigation and all sub-pages function properly
+- Settings changes (profile, theme, blocklist) persist and sync to main app
 - Notification logic triggers appropriately
 - Thread state transitions valid
 - Reply Mode enter/exit functions correctly
@@ -1429,6 +1558,7 @@ The system MUST support complex, multi-step tasks similar to these examples:
 - Getting started guide
 - Feature overview and screenshots
 - Keyboard shortcuts reference
+- Settings page guide (profile setup, theme selection, blocklist management, usage tracking)
 - Sample tasks with expected outcomes
 - Troubleshooting common issues
 - FAQ section
@@ -1452,6 +1582,7 @@ The system MUST support complex, multi-step tasks similar to these examples:
 - **Notification**: Pop-up card showing task status when Spotlight closed
 - **Progress Snapshot**: Frozen copy of majorSteps at a point in time, stored with conversation messages
 - **Reply Mode**: UI state where user is viewing and replying to specific thread
+- **Settings Page**: Standalone full-page interface for managing user profile, preferences, and system configuration (separate from Spotlight)
 - **Spotlight**: Main command interface modal
 - **Thread**: Single task execution instance with conversation history
 - **To-Do List**: Visual representation of major steps and progress
