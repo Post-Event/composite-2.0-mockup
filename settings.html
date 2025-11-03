@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Composite Settings</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      background: #fafafa;
+      min-height: 100vh;
+    }
+
+    /* Header */
+    .header {
+      background: white;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo {
+      width: 40px;
+      height: 40px;
+    }
+
+    .header-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: #111111;
+    }
+
+    /* Main Layout */
+    .main-layout {
+      display: flex;
+      min-height: calc(100vh - 73px);
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 240px;
+      background: white;
+      border-right: 1px solid #e5e7eb;
+      padding: 24px 0;
+      position: sticky;
+      top: 73px;
+      height: calc(100vh - 73px);
+      overflow-y: auto;
+    }
+
+    .nav-section {
+      margin-bottom: 24px;
+    }
+
+    .nav-section-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #9ca3af;
+      padding: 0 24px;
+      margin-bottom: 8px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 24px;
+      color: #4b5563;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      border-left: 3px solid transparent;
+    }
+
+    .nav-item:hover {
+      background: #f9fafb;
+      color: #111111;
+    }
+
+    .nav-item.active {
+      background: #fff7ed;
+      color: #F06423;
+      border-left-color: #F06423;
+    }
+
+    .nav-icon {
+      width: 20px;
+      height: 20px;
+      stroke-width: 2;
+      stroke: currentColor;
+      fill: none;
+    }
+
+    /* Content Area */
+    .content {
+      flex: 1;
+      padding: 32px 48px;
+      max-width: 1200px;
+    }
+
+    .content-header {
+      margin-bottom: 32px;
+    }
+
+    .content-title {
+      font-size: 28px;
+      font-weight: 700;
+      color: #111111;
+      margin-bottom: 8px;
+    }
+
+    .content-subtitle {
+      font-size: 15px;
+      color: #6b7280;
+    }
+
+    /* Settings Sections */
+    .settings-section {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 0;
+      margin-bottom: 24px;
+      overflow: hidden;
+    }
+
+    .section-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #111111;
+      margin-bottom: 4px;
+    }
+
+    .section-description {
+      font-size: 13px;
+      color: #6b7280;
+    }
+
+    .section-content {
+      padding: 24px;
+    }
+
+    /* Tab Selector */
+    .tab-selector {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .tab-button {
+      flex: 1;
+      padding: 12px 24px;
+      background: #f3f4f6;
+      border: 2px solid transparent;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #6b7280;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab-button.active {
+      background: white;
+      border-color: #F06423;
+      color: #111111;
+    }
+
+    .tab-button:hover:not(.active) {
+      background: #e5e7eb;
+    }
+
+    /* User Profile Card */
+    .profile-card {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 24px;
+      background: #fafafa;
+      border-radius: 8px;
+      margin-bottom: 24px;
+    }
+
+    .avatar-large {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #F06423 0%, #ff7e47 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 32px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .profile-info {
+      flex: 1;
+    }
+
+    .profile-name {
+      font-size: 20px;
+      font-weight: 600;
+      color: #111111;
+      margin-bottom: 4px;
+    }
+
+    .profile-email {
+      font-size: 14px;
+      color: #6b7280;
+    }
+
+    /* Connection Status */
+    .connection-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+
+    .connection-card.disconnected {
+      background: #fff7ed;
+      border-color: #fed7aa;
+    }
+
+    .connection-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .connection-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      background: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .chrome-logo {
+      width: 24px;
+      height: 24px;
+    }
+
+    .connection-details h4 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #111111;
+      margin-bottom: 4px;
+    }
+
+    .connection-status-text {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: #6b7280;
+    }
+
+    .status-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10b981;
+    }
+
+    .status-indicator.disconnected {
+      background: #F06423;
+    }
+
+    /* Form Groups */
+    .form-group {
+      margin-bottom: 24px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 8px;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 14px;
+      color: #111111;
+      transition: all 0.15s;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: #F06423;
+      box-shadow: 0 0 0 3px rgba(240, 100, 35, 0.1);
+    }
+
+    .form-hint {
+      font-size: 12px;
+      color: #6b7280;
+      margin-top: 6px;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    /* Toggle Switch */
+    .toggle-group {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 0;
+      border-bottom: 1px solid #f3f4f6;
+    }
+
+    .toggle-group:last-child {
+      border-bottom: none;
+    }
+
+    .toggle-info h4 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #111111;
+      margin-bottom: 4px;
+    }
+
+    .toggle-info p {
+      font-size: 13px;
+      color: #6b7280;
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 48px;
+      height: 28px;
+      background: #d1d5db;
+      border-radius: 14px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .toggle-switch.active {
+      background: #F06423;
+    }
+
+    .toggle-slider {
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 22px;
+      height: 22px;
+      background: white;
+      border-radius: 50%;
+      transition: transform 0.2s;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .toggle-switch.active .toggle-slider {
+      transform: translateX(20px);
+    }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card {
+      padding: 20px;
+      background: #fafafa;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+    }
+
+    .stat-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: #111111;
+      margin-bottom: 4px;
+    }
+
+    .stat-label {
+      font-size: 13px;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* List Items */
+    .list-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 0;
+      border-bottom: 1px solid #f3f4f6;
+    }
+
+    .list-item:last-child {
+      border-bottom: none;
+    }
+
+    .list-item-content h4 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #111111;
+      margin-bottom: 4px;
+    }
+
+    .list-item-content p {
+      font-size: 13px;
+      color: #6b7280;
+    }
+
+    .badge {
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .badge-info {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      border: none;
+      text-decoration: none;
+      display: inline-block;
+    }
+
+    .btn-primary {
+      background: #F06423;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #d95519;
+    }
+
+    .btn-secondary {
+      background: white;
+      color: #374151;
+      border: 1px solid #e5e7eb;
+    }
+
+    .btn-secondary:hover {
+      background: #f9fafb;
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 48px 24px;
+      color: #9ca3af;
+    }
+
+    .empty-icon {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 16px;
+      stroke: currentColor;
+      fill: none;
+    }
+
+    .empty-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #6b7280;
+      margin-bottom: 8px;
+    }
+
+    .empty-description {
+      font-size: 14px;
+      color: #9ca3af;
+    }
+
+    /* Chart Container */
+    .chart-container {
+      background: #fafafa;
+      border-radius: 8px;
+      padding: 24px;
+      margin-top: 16px;
+    }
+
+    /* Textarea */
+    textarea.form-input {
+      min-height: 120px;
+      resize: vertical;
+      font-family: inherit;
+    }
+
+    /* Responsive */
+    @media (max-width: 968px) {
+      .main-layout {
+        flex-direction: column;
+      }
+
+      .sidebar {
+        width: 100%;
+        height: auto;
+        position: static;
+        border-right: none;
+        border-bottom: 1px solid #e5e7eb;
+        padding: 16px 0;
+      }
+
+      .content {
+        padding: 24px 20px;
+      }
+
+      .header {
+        padding: 16px 20px;
+      }
+
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Hidden class */
+    .hidden {
+      display: none;
+    }
+
+    /* Theme selector dropdown */
+    .theme-dropdown {
+      position: relative;
+      display: inline-block;
+    }
+
+    .theme-button {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: white;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      color: #111111;
+      transition: all 0.15s;
+    }
+
+    .theme-button:hover {
+      background: #f9fafb;
+    }
+
+    .theme-menu {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      min-width: 200px;
+      z-index: 10;
+      overflow: hidden;
+    }
+
+    .theme-option {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .theme-option:hover {
+      background: #f9fafb;
+    }
+
+    .theme-option-icon {
+      width: 20px;
+      height: 20px;
+      stroke: currentColor;
+      fill: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="logo-container">
+      <svg class="logo" viewBox="0 0 735 710" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M191.904 150H193.992C212.776 150 227.983 165.207 227.983 183.992C227.983 202.776 212.776 217.983 193.992 217.983C175.207 217.983 160 202.776 160 183.992V181.904C160 164.312 174.312 150 191.904 150Z" fill="#F05023"/>
+        <path d="M343.382 183.992C343.382 165.219 328.163 150 309.39 150C290.617 150 275.398 165.219 275.398 183.992C275.398 202.765 290.617 217.983 309.39 217.983C328.163 217.983 343.382 202.765 343.382 183.992Z" fill="#F05023"/>
+        <path d="M227.983 297.884C227.983 279.111 212.765 263.892 193.992 263.892C175.219 263.892 160 279.111 160 297.884C160 316.657 175.219 331.875 193.992 331.875C212.765 331.875 227.983 316.657 227.983 297.884Z" fill="#F05023"/>
+        <path d="M343.382 297.884C343.382 279.111 328.163 263.892 309.39 263.892C290.617 263.892 275.398 279.111 275.398 297.884C275.398 316.657 290.617 331.875 309.39 331.875C328.163 331.875 343.382 316.657 343.382 297.884Z" fill="#F05023"/>
+        <path d="M458.921 183.992C458.921 165.219 443.702 150 424.929 150C406.156 150 390.938 165.219 390.938 183.992C390.938 202.765 406.156 217.983 424.929 217.983C443.702 217.983 458.921 202.765 458.921 183.992Z" fill="#F05023"/>
+        <path d="M458.921 297.884C458.921 279.111 443.702 263.892 424.929 263.892C406.156 263.892 390.938 279.111 390.938 297.884C390.938 316.657 406.156 331.875 424.929 331.875C443.702 331.875 458.921 316.657 458.921 297.884Z" fill="#F05023"/>
+        <path d="M227.983 411.641C227.983 392.868 212.765 377.65 193.992 377.65C175.219 377.65 160 392.868 160 411.641C160 430.414 175.219 445.633 193.992 445.633C212.765 445.633 227.983 430.414 227.983 411.641Z" fill="#F05023"/>
+        <path d="M343.382 411.641C343.382 392.868 328.163 377.65 309.39 377.65C290.617 377.65 275.398 392.868 275.398 411.641C275.398 430.414 290.617 445.633 309.39 445.633C328.163 445.633 343.382 430.414 343.382 411.641Z" fill="#F05023"/>
+        <path d="M458.921 411.641C458.921 392.868 443.702 377.65 424.929 377.65C406.156 377.65 390.938 392.868 390.938 411.641C390.938 430.414 406.156 445.633 424.929 445.633C443.702 445.633 458.921 430.414 458.921 411.641Z" fill="#F05023"/>
+        <path d="M227.983 525.544C227.983 506.771 212.765 491.552 193.992 491.552C175.219 491.552 160 506.771 160 525.544C160 544.317 175.219 559.535 193.992 559.535C212.765 559.535 227.983 544.317 227.983 525.544Z" fill="#F05023"/>
+        <path d="M343.382 525.544C343.382 506.771 328.163 491.552 309.39 491.552C290.617 491.552 275.398 506.771 275.398 525.544C275.398 544.317 290.617 559.535 309.39 559.535C328.163 559.535 343.382 544.317 343.382 525.544Z" fill="#F05023"/>
+        <path d="M458.921 525.544C458.921 506.771 443.702 491.552 424.929 491.552C406.156 491.552 390.938 506.771 390.938 525.544C390.938 544.317 406.156 559.535 424.929 559.535C443.702 559.535 458.921 544.317 458.921 525.544Z" fill="#F05023"/>
+        <path d="M574.319 183.992C574.319 165.219 559.101 150 540.328 150C521.555 150 506.336 165.219 506.336 183.992C506.336 202.765 521.555 217.983 540.328 217.983C559.101 217.983 574.319 202.765 574.319 183.992Z" fill="#F05023"/>
+        <path d="M574.319 297.884C574.319 279.111 559.101 263.892 540.328 263.892C521.555 263.892 506.336 279.111 506.336 297.884C506.336 316.657 521.555 331.875 540.328 331.875C559.101 331.875 574.319 316.657 574.319 297.884Z" fill="#F05023"/>
+        <path d="M574.319 411.641C574.319 392.868 559.101 377.65 540.328 377.65C521.555 377.65 506.336 392.868 506.336 411.641C506.336 430.414 521.555 445.633 540.328 445.633C559.101 445.633 574.319 430.414 574.319 411.641Z" fill="#F05023"/>
+        <path d="M574.319 525.544C574.319 506.771 559.101 491.552 540.328 491.552C521.555 491.552 506.336 506.771 506.336 525.544C506.336 544.317 521.555 559.535 540.328 559.535C559.101 559.535 574.319 544.317 574.319 525.544Z" fill="#F05023"/>
+        <path d="M404.947 297.885H329.211C318.26 297.885 309.383 306.763 309.383 317.714V391.958C309.383 402.909 318.26 411.787 329.211 411.787H404.947C415.898 411.787 424.775 402.909 424.775 391.958V317.714C424.775 306.763 415.898 297.885 404.947 297.885Z" fill="#F05023"/>
+        <path d="M404.953 426.557H329.218C309.985 426.557 294.48 410.903 294.48 391.82V317.725C294.48 298.493 310.135 282.988 329.218 282.988H404.953C424.185 282.988 439.69 298.642 439.69 317.725V391.82C439.69 411.053 424.036 426.557 404.953 426.557ZM329.367 312.805C326.683 312.805 324.447 315.041 324.447 317.725V391.82C324.447 394.504 326.683 396.74 329.367 396.74H405.102C407.786 396.74 410.022 394.504 410.022 391.82V317.725C410.022 315.041 407.786 312.805 405.102 312.805H329.367Z" fill="#F05023"/>
+      </svg>
+      <span class="header-title">Composite Settings</span>
+    </div>
+  </header>
+
+  <!-- Main Layout -->
+  <div class="main-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <nav>
+        <div class="nav-section">
+          <div class="nav-section-title">Settings</div>
+          <a href="#" class="nav-item active" onclick="showSection(event, 'profile')">
+            <svg class="nav-icon" viewBox="0 0 24 24">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
+            Profile & Privacy
+          </a>
+          <a href="#" class="nav-item" onclick="showSection(event, 'appearance')">
+            <svg class="nav-icon" viewBox="0 0 24 24">
+              <circle cx="13.5" cy="6.5" r=".5"/>
+              <circle cx="17.5" cy="10.5" r=".5"/>
+              <circle cx="8.5" cy="7.5" r=".5"/>
+              <circle cx="6.5" cy="12.5" r=".5"/>
+              <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>
+            </svg>
+            Appearance
+          </a>
+          <a href="#" class="nav-item" onclick="showSection(event, 'blocklist')">
+            <svg class="nav-icon" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+            </svg>
+            Blocklist
+          </a>
+          <a href="#" class="nav-item" onclick="showSection(event, 'usage')">
+            <svg class="nav-icon" viewBox="0 0 24 24">
+              <line x1="12" y1="20" x2="12" y2="10"/>
+              <line x1="18" y1="20" x2="18" y2="4"/>
+              <line x1="6" y1="20" x2="6" y2="16"/>
+            </svg>
+            Usage
+          </a>
+        </div>
+
+        <div class="nav-section">
+          <div class="nav-section-title">Account</div>
+          <a href="https://billing.stripe.com/p/login/test_123" target="_blank" class="nav-item">
+            <svg class="nav-icon" viewBox="0 0 24 24">
+              <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+              <line x1="1" y1="10" x2="23" y2="10"/>
+            </svg>
+            Manage Billing
+          </a>
+        </div>
+
+        <div class="nav-section">
+          <div class="nav-section-title">Resources</div>
+          <a href="#" class="nav-item" onclick="showSection(event, 'changelog')">
+            <svg class="nav-icon" viewBox="0 0 24 24">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+            </svg>
+            Changelog
+          </a>
+          <a href="mailto:support@composite.com" class="nav-item">
+            <svg class="nav-icon" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            Contact Support
+          </a>
+          <a href="https://discord.gg/composite" target="_blank" class="nav-item">
+            <svg class="nav-icon" viewBox="0 0 24 24">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+            Community
+          </a>
+        </div>
+
+        <div class="nav-section">
+          <a href="#" class="nav-item" onclick="showSection(event, 'logout')">
+            <svg class="nav-icon" viewBox="0 0 24 24">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+            Logout
+          </a>
+        </div>
+      </nav>
+    </aside>
+
+    <!-- Content -->
+    <main class="content">
+      <!-- Profile Section -->
+      <div id="profile-section" class="content-section">
+        <div class="content-header">
+          <h1 class="content-title">Profile & Privacy</h1>
+          <p class="content-subtitle">Manage your profile and privacy settings</p>
+        </div>
+
+        <!-- Tab Selector -->
+        <div class="tab-selector">
+          <button class="tab-button active" onclick="switchTab(event, 'profile-tab')">Profile</button>
+          <button class="tab-button" onclick="switchTab(event, 'privacy-tab')">Other</button>
+        </div>
+
+        <!-- Profile Tab Content -->
+        <div id="profile-tab" class="tab-content">
+          <div class="settings-section">
+            <div class="section-header">
+              <h3 class="section-title">Profile Information</h3>
+              <p class="section-description">Update your personal details</p>
+            </div>
+            <div class="section-content">
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">First Name *</label>
+                  <input type="text" class="form-input" value="Yang Fan" placeholder="Enter your first name">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Last Name *</label>
+                  <input type="text" class="form-input" value="Yun" placeholder="Enter your last name">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Title *</label>
+                  <input type="text" class="form-input" value="SWE" placeholder="Enter your title">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Company *</label>
+                  <input type="text" class="form-input" value="Meta" placeholder="Enter your company">
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Internal Sites</label>
+                <textarea class="form-input" placeholder="Include any custom websites so we can navigate to them.
+Example:
+Internal CRM:
+https://docs.google.com/spreadsheets/d/1cvEtXx8mMqafRfdUI...">Internal CRM:
+https://docs.google.com/spreadsheets/d/1cvEtXx8mMqafRfdUIGpSfNfA7V1uwUDDoRCnWCB2jgA/edit?gid=000665251#gid=000665251</textarea>
+                <p class="form-hint">Add URLs to internal tools or sites that Composite should have access to</p>
+              </div>
+              <button class="btn btn-primary">Save Changes</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Privacy Tab Content -->
+        <div id="privacy-tab" class="tab-content hidden">
+          <div class="settings-section">
+            <div class="section-header">
+              <h3 class="section-title">Privacy Settings</h3>
+              <p class="section-description">Control how your data is used</p>
+            </div>
+            <div class="section-content">
+              <div class="toggle-group">
+                <div class="toggle-info">
+                  <h4>Privacy Mode</h4>
+                  <p>Your data will not be trained on or used to improve the product.</p>
+                </div>
+                <div class="toggle-switch active" onclick="toggleSwitch(this)">
+                  <div class="toggle-slider"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Appearance Section -->
+      <div id="appearance-section" class="content-section hidden">
+        <div class="content-header">
+          <h1 class="content-title">Appearance</h1>
+          <p class="content-subtitle">Customize how Composite looks</p>
+        </div>
+
+        <div class="settings-section">
+          <div class="section-header">
+            <h3 class="section-title">Theme</h3>
+            <p class="section-description">Choose your preferred theme</p>
+          </div>
+          <div class="section-content">
+            <div class="form-group">
+              <label class="form-label">Theme Mode</label>
+              <div class="theme-dropdown">
+                <button class="theme-button" onclick="toggleThemeMenu()">
+                  <svg class="theme-option-icon" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="5"/>
+                    <line x1="12" y1="1" x2="12" y2="3"/>
+                    <line x1="12" y1="21" x2="12" y2="23"/>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                    <line x1="1" y1="12" x2="3" y2="12"/>
+                    <line x1="21" y1="12" x2="23" y2="12"/>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                  </svg>
+                  <span id="current-theme">Light Theme</span>
+                </button>
+                <div class="theme-menu hidden" id="theme-menu">
+                  <div class="theme-option" onclick="selectTheme('Light Theme', this)">
+                    <svg class="theme-option-icon" viewBox="0 0 24 24">
+                      <circle cx="12" cy="12" r="5"/>
+                      <line x1="12" y1="1" x2="12" y2="3"/>
+                      <line x1="12" y1="21" x2="12" y2="23"/>
+                      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                      <line x1="1" y1="12" x2="3" y2="12"/>
+                      <line x1="21" y1="12" x2="23" y2="12"/>
+                      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                    </svg>
+                    Light Theme
+                  </div>
+                  <div class="theme-option" onclick="selectTheme('Dark Theme', this)">
+                    <svg class="theme-option-icon" viewBox="0 0 24 24">
+                      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                    Dark Theme
+                  </div>
+                  <div class="theme-option" onclick="selectTheme('Follow System', this)">
+                    <svg class="theme-option-icon" viewBox="0 0 24 24">
+                      <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                      <line x1="8" y1="21" x2="16" y2="21"/>
+                      <line x1="12" y1="17" x2="12" y2="21"/>
+                    </svg>
+                    Follow System
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Blocklist Section -->
+      <div id="blocklist-section" class="content-section hidden">
+        <div class="content-header">
+          <h1 class="content-title">Blocklist</h1>
+          <p class="content-subtitle">Sites added here will be blocked by Composite</p>
+        </div>
+
+        <div class="settings-section">
+          <div class="section-header">
+            <h3 class="section-title">Blocked Websites</h3>
+            <p class="section-description">Composite will never interact with these domains</p>
+          </div>
+          <div class="section-content">
+            <div class="form-group">
+              <label class="form-label">Add Site to Blocklist</label>
+              <div style="display: flex; gap: 12px;">
+                <input type="text" class="form-input" placeholder="Find or add a site..." id="blocklist-input">
+                <button class="btn btn-primary" onclick="addToBlocklist()">+ Add Site</button>
+              </div>
+            </div>
+            <div id="blocklist-items">
+              <div class="empty-state">
+                <svg class="empty-icon" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+                </svg>
+                <div class="empty-title">No restricted websites yet</div>
+                <div class="empty-description">Add websites above to start blocking them</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Usage Section -->
+      <div id="usage-section" class="content-section hidden">
+        <div class="content-header">
+          <h1 class="content-title">Usage</h1>
+          <p class="content-subtitle">Last 30 days of requests that resets every 30 days</p>
+        </div>
+
+        <div class="settings-section">
+          <div class="section-header">
+            <h3 class="section-title">Monthly Usage</h3>
+          </div>
+          <div class="section-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+              <div>
+                <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #6b7280; margin-bottom: 8px;">MONTHLY USAGE</div>
+                <div style="font-size: 24px; font-weight: 700; color: #111111;">1,982 <span style="font-size: 16px; color: #9ca3af;">/ 5,000</span></div>
+              </div>
+              <div style="font-size: 48px; font-weight: 700; color: #10b981;">39.6%</div>
+            </div>
+            <div style="width: 100%; height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden;">
+              <div style="width: 39.6%; height: 100%; background: #10b981;"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="section-header">
+            <h3 class="section-title">Request Distribution</h3>
+            <p class="section-description">Distribution of requests across different modes in the last 30 days</p>
+          </div>
+          <div class="section-content">
+            <div class="chart-container">
+              <div style="text-align: center; padding: 48px; color: #9ca3af;">
+                <svg style="width: 48px; height: 48px; margin: 0 auto 16px; stroke: currentColor; fill: none;" viewBox="0 0 24 24">
+                  <line x1="12" y1="20" x2="12" y2="10"/>
+                  <line x1="18" y1="20" x2="18" y2="4"/>
+                  <line x1="6" y1="20" x2="6" y2="16"/>
+                </svg>
+                <div style="font-size: 14px; color: #6b7280;">Usage chart visualization</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Changelog Section -->
+      <div id="changelog-section" class="content-section hidden">
+        <div class="content-header">
+          <h1 class="content-title">Changelog</h1>
+          <p class="content-subtitle">See what's new in Composite</p>
+        </div>
+
+        <div class="settings-section">
+          <div class="section-header">
+            <h3 class="section-title">0.9.9 (2025-10-26)</h3>
+          </div>
+          <div class="section-content">
+            <h4 style="font-weight: 600; margin-bottom: 12px; color: #111111;">New Features</h4>
+            <ul style="margin-left: 20px; margin-bottom: 24px; color: #374151; line-height: 1.6;">
+              <li>Launched a new Fast Mode — delivers results twice as fast with 50% greater accuracy</li>
+              <li>Expanded browser support for a wider range of platforms</li>
+              <li>Introduced usage-based visibility for clearer tracking and management</li>
+              <li>Increased request limits to enable more frequent and flexible usage</li>
+            </ul>
+            <h4 style="font-weight: 600; margin-bottom: 12px; color: #111111;">Improvements</h4>
+            <ul style="margin-left: 20px; color: #374151; line-height: 1.6;">
+              <li>Enhanced assistant context by including profile metadata for better personalization</li>
+              <li>Suggestions are now even more relevant and tailored to your active tab</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="section-header">
+            <h3 class="section-title">0.9.8 (2025-10-14)</h3>
+          </div>
+          <div class="section-content">
+            <h4 style="font-weight: 600; margin-bottom: 12px; color: #111111;">New Features</h4>
+            <ul style="margin-left: 20px; color: #374151; line-height: 1.6;">
+              <li>Task List View - See and track multi-step workflows as Composite completes them</li>
+              <li>Enhanced error handling and recovery</li>
+              <li>Improved performance and stability</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Logout Section -->
+      <div id="logout-section" class="content-section hidden">
+        <div class="content-header">
+          <h1 class="content-title">Logout</h1>
+          <p class="content-subtitle">Sign out of your Composite account</p>
+        </div>
+
+        <div class="settings-section">
+          <div class="section-header">
+            <h3 class="section-title">Sign Out</h3>
+            <p class="section-description">You will need to sign in again to use Composite</p>
+          </div>
+          <div class="section-content">
+            <p style="color: #6b7280; margin-bottom: 24px;">Are you sure you want to logout? You'll need to sign in again to continue using Composite.</p>
+            <button class="btn btn-primary" onclick="logout()" style="min-width: 200px;">
+              <svg style="width: 16px; height: 16px; display: inline-block; vertical-align: middle; margin-right: 8px; stroke: currentColor; fill: none;" viewBox="0 0 24 24">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+              Logout
+            </button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // Navigation
+    function showSection(event, sectionName) {
+      event.preventDefault();
+      
+      // Remove active class from all nav items
+      document.querySelectorAll('.nav-item').forEach(item => {
+        item.classList.remove('active');
+      });
+      
+      // Add active class to clicked nav item
+      event.currentTarget.classList.add('active');
+      
+      // Hide all sections
+      document.querySelectorAll('.content-section').forEach(section => {
+        section.classList.add('hidden');
+      });
+      
+      // Show selected section
+      const section = document.getElementById(sectionName + '-section');
+      if (section) {
+        section.classList.remove('hidden');
+      }
+    }
+
+    // Tab switching within Profile section
+    function switchTab(event, tabName) {
+      // Update tab buttons
+      document.querySelectorAll('.tab-button').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      event.target.classList.add('active');
+
+      // Update tab content
+      document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.add('hidden');
+      });
+      document.getElementById(tabName).classList.remove('hidden');
+    }
+
+    // Toggle Switch
+    function toggleSwitch(element) {
+      element.classList.toggle('active');
+    }
+
+    // Theme Menu
+    function toggleThemeMenu() {
+      const menu = document.getElementById('theme-menu');
+      menu.classList.toggle('hidden');
+    }
+
+    function selectTheme(themeName, element) {
+      document.getElementById('current-theme').textContent = themeName;
+      document.getElementById('theme-menu').classList.add('hidden');
+    }
+
+    // Close theme menu when clicking outside
+    document.addEventListener('click', function(event) {
+      const dropdown = document.querySelector('.theme-dropdown');
+      const menu = document.getElementById('theme-menu');
+      if (!dropdown.contains(event.target)) {
+        menu.classList.add('hidden');
+      }
+    });
+
+    // Blocklist
+    function addToBlocklist() {
+      const input = document.getElementById('blocklist-input');
+      const domain = input.value.trim();
+      
+      if (!domain) {
+        alert('Please enter a domain name');
+        return;
+      }
+      
+      const container = document.getElementById('blocklist-items');
+      
+      // Remove empty state if it exists
+      const emptyState = container.querySelector('.empty-state');
+      if (emptyState) {
+        emptyState.remove();
+      }
+      
+      const newItem = document.createElement('div');
+      newItem.className = 'list-item';
+      newItem.innerHTML = `
+        <div class="list-item-content">
+          <h4>${domain}</h4>
+          <p>Added on ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+        </div>
+        <button class="btn btn-secondary" onclick="removeFromBlocklist(this)">Remove</button>
+      `;
+      container.appendChild(newItem);
+      input.value = '';
+    }
+
+    function removeFromBlocklist(button) {
+      if (confirm('Remove this domain from the blocklist?')) {
+        const item = button.closest('.list-item');
+        const container = document.getElementById('blocklist-items');
+        item.remove();
+        
+        // Show empty state if no items left
+        if (container.children.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <svg class="empty-icon" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+              </svg>
+              <div class="empty-title">No restricted websites yet</div>
+              <div class="empty-description">Add websites above to start blocking them</div>
+            </div>
+          `;
+        }
+      }
+    }
+
+    // Logout
+    function logout() {
+      if (confirm('Are you sure you want to logout?')) {
+        alert('Logging out...');
+        // Add your logout logic here
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 const Loader = ({ className }) => (
   <svg className={`${className} animate-spin`} fill="none" viewBox="0 0 24 24">
@@ -140,7 +140,8 @@ const Ban = ({ className }) => (
 
 const Square = ({ className }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+    <circle cx="12" cy="12" r="10" fill="currentColor" />
+    <rect x="8" y="8" width="8" height="8" rx="1" ry="1" fill="white" />
   </svg>
 );
 
@@ -238,7 +239,6 @@ export default function BrowserCopilot() {
   const [input, setInput] = useState('');
   const [threads, setThreads] = useState([]);
   const [activeThreadId, setActiveThreadId] = useState(null);
-  const [showChromeModal, setShowChromeModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showThreadsModal, setShowThreadsModal] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(true);
@@ -249,7 +249,38 @@ export default function BrowserCopilot() {
   const [visibleNotifications, setVisibleNotifications] = useState([]); // IDs of threads with visible notifications
   const [expandedNotificationGroup, setExpandedNotificationGroup] = useState(false); // Whether notification stack is expanded
   const [lastNotificationAction, setLastNotificationAction] = useState({}); // Track last action timestamp per thread to show new notifications
+  const [threadViewTimestamps, setThreadViewTimestamps] = useState({}); // Track when each thread was last viewed in chat history
+  const [dismissedOngoingTasks, setDismissedOngoingTasks] = useState(new Set()); // Track which ongoing tasks have been dismissed
+  const [dismissedAttentionNeeded, setDismissedAttentionNeeded] = useState(new Set()); // Track which attention needed threads have been dismissed
   const spotlightRef = useRef(null);
+
+  // Stop execution for a specific thread - freezes current progress by saving snapshot
+  const handleStopExecution = useCallback((threadId) => {
+    setThreads((prev) =>
+      prev.map((t) => {
+        if (t.id === threadId && t.status === 'executing') {
+          // Freeze current progress by saving snapshot on the last message
+          const previousMessages = [...(t.conversationHistory || [])];
+          if (previousMessages.length > 0) {
+            const lastIdx = previousMessages.length - 1;
+            previousMessages[lastIdx] = {
+              ...previousMessages[lastIdx],
+              progressSnapshot: t.majorSteps ? JSON.parse(JSON.stringify(t.majorSteps)) : null
+            };
+          }
+          
+          return {
+            ...t,
+            status: 'cancelled',
+            currentAction: 'Task stopped by user',
+            lastActionTime: Date.now(),
+            conversationHistory: previousMessages,
+          };
+        }
+        return t;
+      })
+    );
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -277,27 +308,37 @@ export default function BrowserCopilot() {
       // Cmd + P: Stop execution (if active thread is executing)
       else if (e.metaKey && e.key === 'p') {
         e.preventDefault();
-        const activeThread = threads.find((t) => t.id === activeThreadId);
-        if (activeThread && activeThread.status === 'executing') {
-          setThreads((prev) =>
-            prev.map((t) =>
-              t.id === activeThreadId
-                ? { ...t, status: 'cancelled', currentAction: 'Task stopped by user' }
-                : t
-            )
-          );
+        if (activeThreadId) {
+          handleStopExecution(activeThreadId);
         }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showSpotlight, isReplyMode, activeThreadId, replyThreadId, threads, visibleNotifications]);
+  }, [showSpotlight, isReplyMode, activeThreadId, replyThreadId, threads, visibleNotifications, handleStopExecution]);
 
   useEffect(() => {
     if (showSpotlight && spotlightRef.current) {
       spotlightRef.current.focus();
     }
   }, [showSpotlight]);
+
+  // Handle Escape key globally when in reply mode
+  useEffect(() => {
+    if (!isReplyMode || !replyThreadId) return;
+
+    const handleEscapeKey = (e) => {
+      if (e.key === 'Escape') {
+        // Exit reply mode and go back to thread list
+        setIsReplyMode(false);
+        setReplyThreadId(null);
+        setInput('');
+      }
+    };
+
+    window.addEventListener('keydown', handleEscapeKey);
+    return () => window.removeEventListener('keydown', handleEscapeKey);
+  }, [isReplyMode, replyThreadId]);
 
   // Automatically enter reply mode when a thread is selected in Chat History
   useEffect(() => {
@@ -319,9 +360,13 @@ export default function BrowserCopilot() {
     setShowThreadsModal(true);
     setReplyThreadId(threadId);
     setActiveThreadId(threadId);
-    setShowChromeModal(false);
     setShowSettingsModal(false);
     setShowSuggestions(false);
+    // Track that this thread has been viewed (like macOS Messages)
+    setThreadViewTimestamps(prev => ({
+      ...prev,
+      [threadId]: Date.now()
+    }));
     // Hide the notification for this thread
     setVisibleNotifications(prev => prev.filter(id => id !== threadId));
     // Mark as notification dismissed if completed
@@ -332,6 +377,44 @@ export default function BrowserCopilot() {
     ));
   };
 
+  // Clean up dismissed ongoing tasks when they change status from 'executing'
+  useEffect(() => {
+    setDismissedOngoingTasks(prev => {
+      const newSet = new Set(prev);
+      let hasChanges = false;
+      
+      // Remove threads from dismissedOngoingTasks if they're no longer executing
+      prev.forEach(threadId => {
+        const thread = threads.find(t => t.id === threadId);
+        if (!thread || thread.status !== 'executing') {
+          newSet.delete(threadId);
+          hasChanges = true;
+        }
+      });
+      
+      return hasChanges ? newSet : prev;
+    });
+  }, [threads]);
+
+  // Clean up dismissed attention needed threads when they change status from 'clarification_needed'
+  useEffect(() => {
+    setDismissedAttentionNeeded(prev => {
+      const newSet = new Set(prev);
+      let hasChanges = false;
+      
+      // Remove threads from dismissedAttentionNeeded if they're no longer needing clarification
+      prev.forEach(threadId => {
+        const thread = threads.find(t => t.id === threadId);
+        if (!thread || thread.status !== 'clarification_needed') {
+          newSet.delete(threadId);
+          hasChanges = true;
+        }
+      });
+      
+      return hasChanges ? newSet : prev;
+    });
+  }, [threads]);
+
   // Auto-show notifications only for NEW actions (when currentAction changes)
   useEffect(() => {
     threads.forEach(thread => {
@@ -339,6 +422,8 @@ export default function BrowserCopilot() {
       // 1. Thread needs attention (executing, needs clarification, or just completed)
       // 2. The currentAction is new (different from last time we showed a notification)
       // 3. It's not already visible
+      // 4. The thread hasn't been viewed since the last action (like macOS Messages)
+      // 5. For ongoing tasks, don't show if it's been dismissed (treat entire ongoing process as one notification)
       const needsAttention = 
         thread.status === 'executing' || 
         thread.status === 'clarification_needed' || 
@@ -349,7 +434,17 @@ export default function BrowserCopilot() {
       
       const notAlreadyVisible = !visibleNotifications.includes(thread.id);
       
-      if (needsAttention && isNewAction && notAlreadyVisible) {
+      // Check if thread has been viewed since the action (no notification needed)
+      const lastViewedTime = threadViewTimestamps[thread.id];
+      const hasBeenViewedSinceAction = lastViewedTime && thread.lastActionTime && lastViewedTime >= thread.lastActionTime;
+      
+      // For ongoing tasks (executing status), don't show notification if it's been dismissed
+      const isOngoingAndDismissed = thread.status === 'executing' && dismissedOngoingTasks.has(thread.id);
+      
+      // For attention needed (clarification_needed status), don't show notification if it's been dismissed
+      const isAttentionNeededAndDismissed = thread.status === 'clarification_needed' && dismissedAttentionNeeded.has(thread.id);
+      
+      if (needsAttention && isNewAction && notAlreadyVisible && !hasBeenViewedSinceAction && !isOngoingAndDismissed && !isAttentionNeededAndDismissed) {
         setVisibleNotifications(prev => [...prev, thread.id]);
         setLastNotificationAction(prev => ({
           ...prev,
@@ -357,7 +452,7 @@ export default function BrowserCopilot() {
         }));
       }
     });
-  }, [threads, lastNotificationAction, visibleNotifications]);
+  }, [threads, lastNotificationAction, visibleNotifications, threadViewTimestamps, dismissedOngoingTasks, dismissedAttentionNeeded]);
 
   const handleExecute = (command) => {
     if (!command.trim()) return;
@@ -365,10 +460,9 @@ export default function BrowserCopilot() {
     // If in reply mode, send reply to the thread being replied to
     if (isReplyMode && replyThreadId) {
       handleRespondToClarification(replyThreadId, command);
-      setShowSpotlight(false);
+      // KEEP Spotlight View open when replying to a thread
       setInput('');
-      setIsReplyMode(false);
-      setReplyThreadId(null);
+      // Stay in reply mode to see the response
       return;
     }
 
@@ -380,6 +474,7 @@ export default function BrowserCopilot() {
       updates: [],
       currentAction: 'Starting task...',
       timestamp: new Date(),
+      lastActionTime: Date.now(),
       conversationHistory: [
         { role: 'user', message: command, timestamp: new Date(), progressSnapshot: null }
       ],
@@ -413,17 +508,19 @@ export default function BrowserCopilot() {
         'Clarification needed: Which email account to use?',
       ];
       const delays = [800, 1200, 2000];
+      
       actions.forEach((action, idx) => {
         setTimeout(() => {
           setThreads((prev) =>
             prev.map((t) => {
-              if (t.id === threadId) {
+              if (t.id === threadId && t.status !== 'cancelled') {
                 const isError = action.includes('Clarification');
                 return {
                   ...t,
                   currentAction: action,
                   status: isError ? 'clarification_needed' : 'executing',
                   updates: [...t.updates, action],
+                  lastActionTime: Date.now(),
                 };
               }
               return t;
@@ -474,16 +571,17 @@ export default function BrowserCopilot() {
       }
     ];
 
-    // Initialize with major steps visible
+    // Initialize with major steps visible - no message yet
     setTimeout(() => {
       setThreads((prev) =>
         prev.map((t) => {
-          if (t.id === threadId) {
+          if (t.id === threadId && t.status !== 'cancelled') {
             return {
               ...t,
               majorSteps: majorSteps.map(step => ({ ...step, status: 'pending', completedAtomicSteps: [] })),
               currentAction: 'Planning task...',
               status: 'executing',
+              lastActionTime: Date.now(),
             };
           }
           return t;
@@ -502,13 +600,14 @@ export default function BrowserCopilot() {
       setTimeout(() => {
         setThreads((prev) =>
           prev.map((t) => {
-            if (t.id === threadId) {
+            if (t.id === threadId && t.status !== 'cancelled') {
               const updatedMajorSteps = [...t.majorSteps];
               updatedMajorSteps[majorIdx] = { ...updatedMajorSteps[majorIdx], status: 'executing' };
               return {
                 ...t,
                 majorSteps: updatedMajorSteps,
                 currentAction: `${majorStep.title}...`,
+                lastActionTime: Date.now(),
               };
             }
             return t;
@@ -523,10 +622,11 @@ export default function BrowserCopilot() {
         setTimeout(() => {
           setThreads((prev) =>
             prev.map((t) => {
-              if (t.id === threadId) {
+              if (t.id === threadId && t.status !== 'cancelled') {
                 return {
                   ...t,
                   currentAction: atomicStep.text,
+                  lastActionTime: Date.now(),
                 };
               }
               return t;
@@ -540,7 +640,7 @@ export default function BrowserCopilot() {
         setTimeout(() => {
           setThreads((prev) =>
             prev.map((t) => {
-              if (t.id === threadId) {
+              if (t.id === threadId && t.status !== 'cancelled') {
                 const updatedMajorSteps = [...t.majorSteps];
                 const completedAtomicSteps = [...(updatedMajorSteps[majorIdx].completedAtomicSteps || []), atomicStep.text];
                 updatedMajorSteps[majorIdx] = {
@@ -558,13 +658,14 @@ export default function BrowserCopilot() {
         }, cumulativeDelay);
       });
 
-      // Mark major step as completed
+      // Mark major step as completed - updates live in the existing todolist
       setTimeout(() => {
         setThreads((prev) =>
           prev.map((t) => {
-            if (t.id === threadId) {
+            if (t.id === threadId && t.status !== 'cancelled') {
               const updatedMajorSteps = [...t.majorSteps];
               updatedMajorSteps[majorIdx] = { ...updatedMajorSteps[majorIdx], status: 'completed' };
+              
               return {
                 ...t,
                 majorSteps: updatedMajorSteps,
@@ -581,11 +682,12 @@ export default function BrowserCopilot() {
     setTimeout(() => {
       setThreads((prev) =>
         prev.map((t) => {
-          if (t.id === threadId) {
+          if (t.id === threadId && t.status !== 'cancelled') {
             return {
               ...t,
               status: 'clarification_needed',
               currentAction: 'Which email account should I use to send the reminder emails?',
+              lastActionTime: Date.now(),
             };
           }
           return t;
@@ -635,16 +737,17 @@ export default function BrowserCopilot() {
       }
     ];
 
-    // Initialize with major steps visible
+    // Initialize with major steps visible - no message yet
     setTimeout(() => {
       setThreads((prev) =>
         prev.map((t) => {
-          if (t.id === threadId) {
+          if (t.id === threadId && t.status !== 'cancelled') {
             return {
               ...t,
               majorSteps: majorSteps.map(step => ({ ...step, status: 'pending', completedAtomicSteps: [] })),
               currentAction: 'Planning task...',
               status: 'executing',
+              lastActionTime: Date.now(),
             };
           }
           return t;
@@ -659,13 +762,14 @@ export default function BrowserCopilot() {
       setTimeout(() => {
         setThreads((prev) =>
           prev.map((t) => {
-            if (t.id === threadId) {
+            if (t.id === threadId && t.status !== 'cancelled') {
               const updatedMajorSteps = [...t.majorSteps];
               updatedMajorSteps[majorIdx] = { ...updatedMajorSteps[majorIdx], status: 'executing' };
               return {
                 ...t,
                 majorSteps: updatedMajorSteps,
                 currentAction: `${majorStep.title}...`,
+                lastActionTime: Date.now(),
               };
             }
             return t;
@@ -680,10 +784,11 @@ export default function BrowserCopilot() {
         setTimeout(() => {
           setThreads((prev) =>
             prev.map((t) => {
-              if (t.id === threadId) {
+              if (t.id === threadId && t.status !== 'cancelled') {
                 return {
                   ...t,
                   currentAction: atomicStep.text,
+                  lastActionTime: Date.now(),
                 };
               }
               return t;
@@ -697,7 +802,7 @@ export default function BrowserCopilot() {
         setTimeout(() => {
           setThreads((prev) =>
             prev.map((t) => {
-              if (t.id === threadId) {
+              if (t.id === threadId && t.status !== 'cancelled') {
                 const updatedMajorSteps = [...t.majorSteps];
                 const completedAtomicSteps = [...(updatedMajorSteps[majorIdx].completedAtomicSteps || []), atomicStep.text];
                 updatedMajorSteps[majorIdx] = {
@@ -715,13 +820,14 @@ export default function BrowserCopilot() {
         }, cumulativeDelay);
       });
 
-      // Mark major step as completed
+      // Mark major step as completed - updates live in the existing todolist
       setTimeout(() => {
         setThreads((prev) =>
           prev.map((t) => {
-            if (t.id === threadId) {
+            if (t.id === threadId && t.status !== 'cancelled') {
               const updatedMajorSteps = [...t.majorSteps];
               updatedMajorSteps[majorIdx] = { ...updatedMajorSteps[majorIdx], status: 'completed' };
+              
               return {
                 ...t,
                 majorSteps: updatedMajorSteps,
@@ -734,15 +840,16 @@ export default function BrowserCopilot() {
       cumulativeDelay += 300;
     });
 
-    // Mark entire task as complete
+    // Mark entire task as complete - message will be shown separately after todolist
     setTimeout(() => {
       setThreads((prev) =>
         prev.map((t) => {
-          if (t.id === threadId) {
+          if (t.id === threadId && t.status !== 'cancelled') {
             return {
               ...t,
               status: 'success',
               currentAction: 'Done! I\'ve successfully created a comprehensive interview summary document for Arya Sharma. The document includes all key points from the interview notes, technical assessment results, and interviewer feedback, formatted and saved in Google Docs.',
+              lastActionTime: Date.now(),
             };
           }
           return t;
@@ -799,16 +906,17 @@ export default function BrowserCopilot() {
       }
     ];
 
-    // Initialize with major steps visible
+    // Initialize with major steps visible - no message yet
     setTimeout(() => {
       setThreads((prev) =>
         prev.map((t) => {
-          if (t.id === threadId) {
+          if (t.id === threadId && t.status !== 'cancelled') {
             return {
               ...t,
               majorSteps: majorSteps.map(step => ({ ...step, status: 'pending', completedAtomicSteps: [] })),
               currentAction: 'Planning task...',
               status: 'executing',
+              lastActionTime: Date.now(),
             };
           }
           return t;
@@ -823,13 +931,14 @@ export default function BrowserCopilot() {
       setTimeout(() => {
         setThreads((prev) =>
           prev.map((t) => {
-            if (t.id === threadId) {
+            if (t.id === threadId && t.status !== 'cancelled') {
               const updatedMajorSteps = [...t.majorSteps];
               updatedMajorSteps[majorIdx] = { ...updatedMajorSteps[majorIdx], status: 'executing' };
               return {
                 ...t,
                 majorSteps: updatedMajorSteps,
                 currentAction: `${majorStep.title}...`,
+                lastActionTime: Date.now(),
               };
             }
             return t;
@@ -844,10 +953,11 @@ export default function BrowserCopilot() {
         setTimeout(() => {
           setThreads((prev) =>
             prev.map((t) => {
-              if (t.id === threadId) {
+              if (t.id === threadId && t.status !== 'cancelled') {
                 return {
                   ...t,
                   currentAction: atomicStep.text,
+                  lastActionTime: Date.now(),
                 };
               }
               return t;
@@ -861,7 +971,7 @@ export default function BrowserCopilot() {
         setTimeout(() => {
           setThreads((prev) =>
             prev.map((t) => {
-              if (t.id === threadId) {
+              if (t.id === threadId && t.status !== 'cancelled') {
                 const updatedMajorSteps = [...t.majorSteps];
                 const completedAtomicSteps = [...(updatedMajorSteps[majorIdx].completedAtomicSteps || []), atomicStep.text];
                 updatedMajorSteps[majorIdx] = {
@@ -879,13 +989,14 @@ export default function BrowserCopilot() {
         }, cumulativeDelay);
       });
 
-      // Mark major step as completed
+      // Mark major step as completed - updates live in the existing todolist
       setTimeout(() => {
         setThreads((prev) =>
           prev.map((t) => {
-            if (t.id === threadId) {
+            if (t.id === threadId && t.status !== 'cancelled') {
               const updatedMajorSteps = [...t.majorSteps];
               updatedMajorSteps[majorIdx] = { ...updatedMajorSteps[majorIdx], status: 'completed' };
+              
               return {
                 ...t,
                 majorSteps: updatedMajorSteps,
@@ -898,15 +1009,16 @@ export default function BrowserCopilot() {
       cumulativeDelay += 300;
     });
 
-    // Mark entire task as complete
+    // Mark entire task as complete and add final message
     setTimeout(() => {
       setThreads((prev) =>
         prev.map((t) => {
-          if (t.id === threadId) {
+          if (t.id === threadId && t.status !== 'cancelled') {
             return {
               ...t,
               status: 'success',
               currentAction: 'Done! I\'ve successfully added Zoom meeting links to 3 upcoming calendar events. All events now have unique meeting URLs and the calendar invites have been updated automatically.',
+              lastActionTime: Date.now(),
             };
           }
           return t;
@@ -955,16 +1067,17 @@ export default function BrowserCopilot() {
       }
     ];
 
-    // Initialize with major steps visible
+    // Initialize with major steps visible - no message yet
     setTimeout(() => {
       setThreads((prev) =>
         prev.map((t) => {
-          if (t.id === threadId) {
+          if (t.id === threadId && t.status !== 'cancelled') {
             return {
               ...t,
               majorSteps: majorSteps.map(step => ({ ...step, status: 'pending', completedAtomicSteps: [] })),
               currentAction: 'Planning task...',
               status: 'executing',
+              lastActionTime: Date.now(),
             };
           }
           return t;
@@ -979,13 +1092,14 @@ export default function BrowserCopilot() {
       setTimeout(() => {
         setThreads((prev) =>
           prev.map((t) => {
-            if (t.id === threadId) {
+            if (t.id === threadId && t.status !== 'cancelled') {
               const updatedMajorSteps = [...t.majorSteps];
               updatedMajorSteps[majorIdx] = { ...updatedMajorSteps[majorIdx], status: 'executing' };
               return {
                 ...t,
                 majorSteps: updatedMajorSteps,
                 currentAction: `${majorStep.title}...`,
+                lastActionTime: Date.now(),
               };
             }
             return t;
@@ -1000,10 +1114,11 @@ export default function BrowserCopilot() {
         setTimeout(() => {
           setThreads((prev) =>
             prev.map((t) => {
-              if (t.id === threadId) {
+              if (t.id === threadId && t.status !== 'cancelled') {
                 return {
                   ...t,
                   currentAction: atomicStep.text,
+                  lastActionTime: Date.now(),
                 };
               }
               return t;
@@ -1017,7 +1132,7 @@ export default function BrowserCopilot() {
         setTimeout(() => {
           setThreads((prev) =>
             prev.map((t) => {
-              if (t.id === threadId) {
+              if (t.id === threadId && t.status !== 'cancelled') {
                 const updatedMajorSteps = [...t.majorSteps];
                 const completedAtomicSteps = [...(updatedMajorSteps[majorIdx].completedAtomicSteps || []), atomicStep.text];
                 updatedMajorSteps[majorIdx] = {
@@ -1035,13 +1150,14 @@ export default function BrowserCopilot() {
         }, cumulativeDelay);
       });
 
-      // Mark major step as completed
+      // Mark major step as completed - updates live in the existing todolist
       setTimeout(() => {
         setThreads((prev) =>
           prev.map((t) => {
-            if (t.id === threadId) {
+            if (t.id === threadId && t.status !== 'cancelled') {
               const updatedMajorSteps = [...t.majorSteps];
               updatedMajorSteps[majorIdx] = { ...updatedMajorSteps[majorIdx], status: 'completed' };
+              
               return {
                 ...t,
                 majorSteps: updatedMajorSteps,
@@ -1054,15 +1170,16 @@ export default function BrowserCopilot() {
       cumulativeDelay += 300;
     });
 
-    // Mark entire task as complete
+    // Mark entire task as complete and add final message
     setTimeout(() => {
       setThreads((prev) =>
         prev.map((t) => {
-          if (t.id === threadId) {
+          if (t.id === threadId && t.status !== 'cancelled') {
             return {
               ...t,
               status: 'success',
               currentAction: 'Done! I\'ve successfully exported 15 calendar events from this week to a CSV file. The file includes event titles, dates, times, attendees, and locations, ready for your reporting needs.',
+              lastActionTime: Date.now(),
             };
           }
           return t;
@@ -1072,18 +1189,18 @@ export default function BrowserCopilot() {
   };
 
   const handleRespondToClarification = (threadId, response) => {
-    // Add user response to conversation history with current progress snapshot
+    // First, stop execution (which freezes progress by saving snapshot)
+    handleStopExecution(threadId);
+    
+    // Then add user reply message to conversation history
     setThreads((prev) =>
       prev.map((t) => {
         if (t.id === threadId) {
-          // Create a deep copy of the current major steps state as a snapshot
-          const progressSnapshot = t.majorSteps ? JSON.parse(JSON.stringify(t.majorSteps)) : null;
-          
           return {
             ...t,
             conversationHistory: [
               ...(t.conversationHistory || []),
-              { role: 'user', message: response, timestamp: new Date(), progressSnapshot }
+              { role: 'user', message: response, timestamp: new Date(), progressSnapshot: null }
             ],
           };
         }
@@ -1106,25 +1223,20 @@ export default function BrowserCopilot() {
       ]
     };
 
-    // Mark as executing and start step 3
+    // Mark as executing and start step 3 - no new message, just update state
+    // Note: We intentionally allow updating cancelled threads here since we're restarting execution
     setThreads((prev) =>
       prev.map((t) => {
         if (t.id === threadId) {
           const updatedMajorSteps = [...t.majorSteps];
           updatedMajorSteps[2] = { ...updatedMajorSteps[2], status: 'executing', completedAtomicSteps: [] };
           
-          // Create snapshot of the state BEFORE this update
-          const progressSnapshot = JSON.parse(JSON.stringify(updatedMajorSteps));
-          
           return {
             ...t,
             majorSteps: updatedMajorSteps,
             currentAction: `Proceeding with ${response}...`,
             status: 'executing',
-            conversationHistory: [
-              ...(t.conversationHistory || []),
-              { role: 'assistant', message: `Proceeding with ${response}...`, timestamp: new Date(), progressSnapshot }
-            ],
+            lastActionTime: Date.now(),
           };
         }
         return t;
@@ -1139,7 +1251,7 @@ export default function BrowserCopilot() {
       setTimeout(() => {
         setThreads((prev) =>
           prev.map((t) => {
-            if (t.id === threadId) {
+            if (t.id === threadId && t.status !== 'cancelled') {
               return {
                 ...t,
                 currentAction: atomicStep.text,
@@ -1156,7 +1268,7 @@ export default function BrowserCopilot() {
       setTimeout(() => {
         setThreads((prev) =>
           prev.map((t) => {
-            if (t.id === threadId) {
+            if (t.id === threadId && t.status !== 'cancelled') {
               const updatedMajorSteps = [...t.majorSteps];
               const completedAtomicSteps = [...(updatedMajorSteps[2].completedAtomicSteps || []), atomicStep.text];
               updatedMajorSteps[2] = {
@@ -1178,7 +1290,7 @@ export default function BrowserCopilot() {
     setTimeout(() => {
       setThreads((prev) =>
         prev.map((t) => {
-          if (t.id === threadId) {
+          if (t.id === threadId && t.status !== 'cancelled') {
             const updatedMajorSteps = [...t.majorSteps];
             updatedMajorSteps[2] = { ...updatedMajorSteps[2], status: 'completed' };
             return {
@@ -1192,15 +1304,16 @@ export default function BrowserCopilot() {
     }, cumulativeDelay);
     cumulativeDelay += 300;
 
-    // Mark entire task as complete
+    // Mark entire task as complete and add final message
     setTimeout(() => {
       setThreads((prev) =>
         prev.map((t) => {
-          if (t.id === threadId) {
+          if (t.id === threadId && t.status !== 'cancelled') {
             return {
               ...t,
               status: 'success',
               currentAction: `Done! I've successfully sent reminder emails for today's 5 reference check calls using your ${response}. All contacts have been notified with personalized messages including the scheduled call times.`,
+              lastActionTime: Date.now(),
             };
           }
           return t;
@@ -1228,19 +1341,44 @@ export default function BrowserCopilot() {
 
   // Calculate notification count - should match the number of active threads that need attention
   const getNotificationCount = () => {
-    return threads.filter(t => 
-      t.status === 'executing' || 
-      t.status === 'clarification_needed' || 
-      (t.status === 'success' && !t.notificationDismissed)
-    ).length;
+    return threads.filter(t => {
+      // Don't count dismissed ongoing tasks
+      if (t.status === 'executing' && dismissedOngoingTasks.has(t.id)) {
+        return false;
+      }
+      
+      // Don't count dismissed attention needed threads
+      if (t.status === 'clarification_needed' && dismissedAttentionNeeded.has(t.id)) {
+        return false;
+      }
+      
+      return (
+        t.status === 'executing' || 
+        t.status === 'clarification_needed' || 
+        (t.status === 'success' && !t.notificationDismissed)
+      );
+    }).length;
   };
 
   // Dismiss notification (hide it until next action)
   const dismissNotification = (threadId) => {
+    const thread = threads.find(t => t.id === threadId);
+    
     setVisibleNotifications(prev => prev.filter(id => id !== threadId));
     if (expandedNotificationGroup) {
       setExpandedNotificationGroup(false);
     }
+    
+    // If it's an ongoing task, add it to dismissedOngoingTasks
+    if (thread && thread.status === 'executing') {
+      setDismissedOngoingTasks(prev => new Set([...prev, threadId]));
+    }
+    
+    // If it's an attention needed thread, add it to dismissedAttentionNeeded
+    if (thread && thread.status === 'clarification_needed') {
+      setDismissedAttentionNeeded(prev => new Set([...prev, threadId]));
+    }
+    
     // Mark the notification as dismissed for completed threads
     setThreads(prev => prev.map(t => 
       t.id === threadId && t.status === 'success' 
@@ -1251,6 +1389,24 @@ export default function BrowserCopilot() {
 
   // Dismiss all notifications
   const dismissAllNotifications = () => {
+    // Add all executing threads to dismissedOngoingTasks
+    const ongoingThreadIds = threads
+      .filter(t => t.status === 'executing')
+      .map(t => t.id);
+    
+    if (ongoingThreadIds.length > 0) {
+      setDismissedOngoingTasks(prev => new Set([...prev, ...ongoingThreadIds]));
+    }
+    
+    // Add all attention needed threads to dismissedAttentionNeeded
+    const attentionNeededThreadIds = threads
+      .filter(t => t.status === 'clarification_needed')
+      .map(t => t.id);
+    
+    if (attentionNeededThreadIds.length > 0) {
+      setDismissedAttentionNeeded(prev => new Set([...prev, ...attentionNeededThreadIds]));
+    }
+    
     setVisibleNotifications([]);
     setExpandedNotificationGroup(false);
     // Mark all completed threads as having their notifications dismissed
@@ -1262,11 +1418,15 @@ export default function BrowserCopilot() {
   };
 
   // Get status indicator for thread
-  const getThreadStatusIndicator = (status, notificationDismissed) => {
+  const getThreadStatusIndicator = (status, notificationDismissed, threadId) => {
     if (status === 'executing') {
-      return { color: 'bg-[#F06423]', label: 'Ongoing', showDot: true };
+      // Don't show dot if the ongoing task has been dismissed
+      const isDismissed = dismissedOngoingTasks.has(threadId);
+      return { color: 'bg-[#F06423]', label: 'Ongoing', showDot: !isDismissed };
     } else if (status === 'clarification_needed') {
-      return { color: 'bg-red-500', label: 'Attention Needed', showDot: true };
+      // Don't show dot if the attention needed has been dismissed
+      const isDismissed = dismissedAttentionNeeded.has(threadId);
+      return { color: 'bg-red-500', label: 'Attention Needed', showDot: !isDismissed };
     } else if (status === 'success') {
       // If notification dismissed, no dot; otherwise green dot
       return { 
@@ -1274,6 +1434,8 @@ export default function BrowserCopilot() {
         label: 'Completed',
         showDot: !notificationDismissed
       };
+    } else if (status === 'cancelled') {
+      return { color: 'bg-gray-500', label: 'Cancelled', showDot: false };
     }
     return { color: 'bg-gray-500', label: 'Unknown', showDot: false };
   };
@@ -1289,6 +1451,34 @@ export default function BrowserCopilot() {
     return colors[index % colors.length];
   };
 
+  // Sort notifications by priority: error > action required > ongoing > completed
+  const getSortedNotifications = () => {
+    return [...visibleNotifications].sort((aId, bId) => {
+      const threadA = threads.find(t => t.id === aId);
+      const threadB = threads.find(t => t.id === bId);
+      
+      if (!threadA || !threadB) return 0;
+      
+      // Define priority values (lower = higher priority)
+      const getPriority = (status) => {
+        if (status === 'error') return 1; // Error - highest priority
+        if (status === 'clarification_needed') return 2; // Action required - high priority
+        if (status === 'executing') return 3; // Ongoing - medium priority
+        if (status === 'success') return 4; // Completed - low priority
+        return 5; // Other statuses (e.g., cancelled) - lowest priority
+      };
+      
+      const priorityA = getPriority(threadA.status);
+      const priorityB = getPriority(threadB.status);
+      
+      // Sort by priority, then by lastActionTime (most recent first) for same priority
+      if (priorityA !== priorityB) {
+        return priorityA - priorityB;
+      }
+      return (threadB.lastActionTime || 0) - (threadA.lastActionTime || 0);
+    });
+  };
+
   return (
     <div className="fixed inset-0 font-sans bg-gray-900 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: 'url("/google-bg.png")' }}>
       {/* Background overlay */}
@@ -1299,7 +1489,7 @@ export default function BrowserCopilot() {
           {expandedNotificationGroup ? (
             /* Expanded Stack - Show all notifications */
             <div className="space-y-2">
-              {visibleNotifications.map((threadId, index) => {
+              {getSortedNotifications().map((threadId, index) => {
                 const thread = threads.find(t => t.id === threadId);
                 if (!thread) return null;
                 
@@ -1315,16 +1505,31 @@ export default function BrowserCopilot() {
                         <CompositeLogoMark className="w-4 h-4 text-[#F06423] flex-shrink-0" />
                         <span className="text-xs text-[#111111] truncate font-medium">{thread.command}</span>
                       </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          dismissNotification(threadId);
-                        }}
-                        className="p-1 hover:bg-[#F8F7F4] rounded transition-colors flex-shrink-0"
-                        title="Dismiss notification"
-                      >
-                        <X className="w-4 h-4 text-slate-600" />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        {/* Stop button for executing threads */}
+                        {thread.status === 'executing' && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleStopExecution(threadId);
+                            }}
+                            className="p-1 hover:bg-[#F8F7F4] rounded transition-colors flex-shrink-0"
+                            title="Stop execution"
+                          >
+                            <Square className="w-4 h-4 text-slate-600" />
+                          </button>
+                        )}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            dismissNotification(threadId);
+                          }}
+                          className="p-1 hover:bg-[#F8F7F4] rounded transition-colors flex-shrink-0"
+                          title="Dismiss notification"
+                        >
+                          <X className="w-4 h-4 text-slate-600" />
+                        </button>
+                      </div>
                     </div>
 
                     {/* Thread Status - Minimal */}
@@ -1340,84 +1545,113 @@ export default function BrowserCopilot() {
                 );
               })}
               
-              {/* Collapse and Dismiss All Controls */}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setExpandedNotificationGroup(false)}
-                  className="flex-1 px-3 py-2 glass-button border border-white/20 rounded-lg text-xs text-[#111111] hover:bg-white/60 transition-colors font-medium"
-                >
-                  Collapse
-                </button>
-                <button
-                  onClick={dismissAllNotifications}
-                  className="flex-1 px-3 py-2 glass-button border border-white/20 rounded-lg text-xs text-red-600 hover:bg-red-50 transition-colors font-medium"
-                >
-                  Dismiss All
-                </button>
-              </div>
+              {/* Collapse and Dismiss All Controls - Only show when there are multiple notifications */}
+              {visibleNotifications.length > 1 && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setExpandedNotificationGroup(false)}
+                    className="flex-1 px-3 py-2 glass-button border border-white/20 rounded-lg text-xs text-[#111111] hover:bg-white/60 transition-colors font-medium"
+                  >
+                    Collapse
+                  </button>
+                  <button
+                    onClick={dismissAllNotifications}
+                    className="flex-1 px-3 py-2 glass-button border border-white/20 rounded-lg text-xs text-red-600 hover:bg-red-50 transition-colors font-medium"
+                  >
+                    Dismiss All
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
-            /* Collapsed Stack - Show top notification with stack indicator */
+            /* Collapsed Stack - Show multiple notifications stacked visually like macOS */
             <div className="relative">
-              {/* Stack layers visual effect */}
-              {visibleNotifications.length > 1 && (
-                <>
-                  <div className="absolute top-1 left-2 right-2 h-full bg-white/40 rounded-xl border border-white/20 -z-10" />
-                  {visibleNotifications.length > 2 && (
-                    <div className="absolute top-2 left-4 right-4 h-full bg-white/20 rounded-xl border border-white/20 -z-20" />
-                  )}
-                </>
-              )}
-              
-              {/* Top notification */}
               {(() => {
-                const topThread = threads.find(t => t.id === visibleNotifications[0]);
+                const sortedNotifications = getSortedNotifications();
+                const topThread = threads.find(t => t.id === sortedNotifications[0]);
                 if (!topThread) return null;
                 
+                const hasStack = visibleNotifications.length > 1;
+                // Show 1 edge for 2 notifications, 2 edges for 3+ notifications (macOS style)
+                const stackEdgeCount = visibleNotifications.length === 2 ? 1 : visibleNotifications.length >= 3 ? 2 : 0;
+                
                 return (
-                  <div
-                    className="glass-notification rounded-xl shadow-2xl border border-white/20 overflow-hidden cursor-pointer hover:shadow-3xl transition-shadow relative"
-                    onClick={() => openSpotlightWithThread(topThread.id)}
-                  >
-                    {/* Thread Header */}
-                    <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/10 bg-white/10">
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <CompositeLogoMark className="w-4 h-4 text-[#F06423] flex-shrink-0" />
-                        <span className="text-xs text-[#111111] truncate font-medium">{topThread.command}</span>
-                      </div>
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        {visibleNotifications.length > 1 && (
+                  <div className="relative">
+                    {/* Stack edge indicators (visual effect only) - positioned behind and below */}
+                    {stackEdgeCount > 0 && Array.from({ length: stackEdgeCount }).map((_, index) => {
+                      const layer = index + 1; // 1, 2
+                      
+                      return (
+                        <div
+                          key={`stack-edge-${layer}`}
+                          className="absolute left-0 right-0 glass-notification rounded-b-xl border-b border-x border-white/30"
+                          style={{
+                            bottom: `${-4 * layer}px`, // Position below the main card
+                            height: '16px',
+                            zIndex: 10 - layer, // Behind the main card
+                          }}
+                        />
+                      );
+                    })}
+                    
+                    {/* Top notification - fully visible and interactive */}
+                    <div
+                      className="relative glass-notification rounded-xl border border-white/20 overflow-hidden cursor-pointer hover:border-white/30 transition-all"
+                      style={{ 
+                        zIndex: 10,
+                        boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.15)',
+                      }}
+                      onClick={(e) => {
+                        if (hasStack) {
+                          // If stacked, expand first
+                          setExpandedNotificationGroup(true);
+                        } else {
+                          // If only 1 notification, open directly
+                          openSpotlightWithThread(topThread.id);
+                        }
+                      }}
+                    >
+                      {/* Thread Header */}
+                      <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/10 bg-white/10">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <CompositeLogoMark className="w-4 h-4 text-[#F06423] flex-shrink-0" />
+                          <span className="text-xs text-[#111111] truncate font-medium">{topThread.command}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {/* Stop button for executing threads */}
+                          {topThread.status === 'executing' && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleStopExecution(topThread.id);
+                              }}
+                              className="p-1 hover:bg-[#F8F7F4] rounded transition-colors flex-shrink-0"
+                              title="Stop execution"
+                            >
+                              <Square className="w-4 h-4 text-slate-600" />
+                            </button>
+                          )}
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              setExpandedNotificationGroup(true);
+                              dismissNotification(topThread.id);
                             }}
-                            className="px-2 py-1 text-[10px] font-medium text-[#F06423] hover:bg-[#F8F7F4] rounded transition-colors"
-                            title="Expand all notifications"
+                            className="p-1 hover:bg-[#F8F7F4] rounded transition-colors flex-shrink-0"
+                            title="Dismiss notification"
                           >
-                            +{visibleNotifications.length - 1} more
+                            <X className="w-4 h-4 text-slate-600" />
                           </button>
-                        )}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            dismissNotification(topThread.id);
-                          }}
-                          className="p-1 hover:bg-[#F8F7F4] rounded transition-colors"
-                          title="Dismiss notification"
-                        >
-                          <X className="w-4 h-4 text-slate-600" />
-                        </button>
+                        </div>
                       </div>
-                    </div>
 
-                    {/* Thread Status - Minimal */}
-                    <div className="px-4 py-3">
-                      <div className="flex items-start gap-2">
-                        {getStatusIcon(topThread.status)}
-                        <p className="text-xs text-slate-700 leading-relaxed flex-1">
-                          {topThread.currentAction}
-                        </p>
+                      {/* Thread Status - Minimal */}
+                      <div className="px-4 py-3">
+                        <div className="flex items-start gap-2">
+                          {getStatusIcon(topThread.status)}
+                          <p className="text-xs text-slate-700 leading-relaxed flex-1">
+                            {topThread.currentAction}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1433,8 +1667,8 @@ export default function BrowserCopilot() {
         <div className="fixed inset-0 flex items-end justify-center pb-12 z-50 pointer-events-none">
           <div className="glass-morphism rounded-xl shadow-2xl w-full max-w-xl overflow-hidden pointer-events-auto border border-white/20">
             {/* Content Area - only show if there's content to display */}
-            {(isReplyMode || showThreadsModal || showChromeModal || showSettingsModal || showSuggestions) && (
-              <div className="p-4 max-h-96 overflow-y-auto glass-content border-b border-white/10">
+            {(isReplyMode || showThreadsModal || showSettingsModal || showSuggestions) && (
+              <div className="max-h-96 glass-content border-b border-white/10 flex flex-col">
               {isReplyMode && replyThreadId ? (
                 /* Reply Mode - Show thread details */
                 (() => {
@@ -1442,84 +1676,79 @@ export default function BrowserCopilot() {
                   if (!selectedThread) return null;
                   
                   return (
-                    <div className="space-y-3">
-                      {/* Back button */}
-                      <button
-                        onClick={() => {
-                          setReplyThreadId(null);
-                          setIsReplyMode(false);
-                        }}
-                        className="flex items-center gap-2 text-xs text-slate-600 hover:text-[#111111] transition-colors"
-                      >
-                        <CornerUpLeft className="w-3 h-3" />
-                        Back to all threads
-                      </button>
-                      
-                      {/* Thread Title */}
-                      <div className="pb-2 border-b border-white/10">
-                        <div className="flex items-center gap-2">
-                          <CompositeLogoMark className="w-4 h-4 text-[#F06423] flex-shrink-0" />
-                          <h3 className="text-sm font-semibold text-[#111111]">{selectedThread.command}</h3>
+                    <>
+                      {/* Sticky Header */}
+                      <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm border-b border-white/20 p-4 space-y-3">
+                        {/* Back button */}
+                        <button
+                          onClick={() => {
+                            setReplyThreadId(null);
+                            setIsReplyMode(false);
+                          }}
+                          className="flex items-center gap-2 text-xs text-slate-600 hover:text-[#111111] transition-colors"
+                        >
+                          <CornerUpLeft className="w-3 h-3" />
+                          Chat History
+                          <span className="ml-auto px-1.5 py-0.5 text-[10px] bg-slate-200 text-slate-600 rounded font-medium">Esc</span>
+                        </button>
+                        
+                        {/* Thread Title */}
+                        <div className="pb-2 border-b border-white/10">
+                          <div className="flex items-center gap-2">
+                            <CompositeLogoMark className="w-4 h-4 text-[#F06423] flex-shrink-0" />
+                            <h3 className="text-sm font-semibold text-[#111111]">{selectedThread.command}</h3>
+                          </div>
+                          <p className="text-[10px] text-slate-500 mt-1">
+                            {selectedThread.timestamp.toLocaleString()}
+                          </p>
                         </div>
-                        <p className="text-[10px] text-slate-500 mt-1">
-                          {selectedThread.timestamp.toLocaleString()}
-                        </p>
                       </div>
                       
-                      {/* Conversation History - Chat Flow */}
-                      <div className="space-y-2 overflow-y-auto">
-                        {selectedThread.conversationHistory && selectedThread.conversationHistory.map((msg, idx) => (
-                          <div key={idx} className="space-y-2">
-                            {/* User or Composite Message */}
-                            <div
-                              className={`p-2.5 rounded-lg text-xs ${
-                                msg.role === 'user'
-                                  ? 'bg-[#F06423]/10 border border-[#F06423]/20 ml-4'
-                                  : 'bg-white/60 border border-white/20 mr-4'
-                              }`}
-                            >
-                              <div className="flex items-center gap-1.5 mb-1">
-                                <span className="font-semibold text-[10px] text-slate-700">
-                                  {msg.role === 'user' ? 'You' : 'Composite'}
-                                </span>
-                                <span className="text-[9px] text-slate-500">
-                                  {msg.timestamp.toLocaleTimeString()}
-                                </span>
-                              </div>
-                              <p className="text-slate-700 leading-relaxed">{msg.message}</p>
-                            </div>
-                            
-                            {/* Show todolist snapshot from this specific point in time */}
-                            {msg.progressSnapshot && msg.progressSnapshot.some(s => s.status !== 'pending') && (
-                              <div className="bg-white/60 border border-white/20 rounded-lg p-2.5 mr-4">
-                                <div className="flex items-center gap-1.5 mb-2">
-                                  <span className="font-semibold text-[10px] text-slate-700">Progress at this time</span>
+                      {/* Scrollable Conversation History */}
+                      <div className="p-4 pt-0 overflow-y-auto">
+                      <div className="space-y-2">
+                        {selectedThread.conversationHistory && selectedThread.conversationHistory.map((msg, idx) => {
+                          const isLastMessage = idx === selectedThread.conversationHistory.length - 1;
+                          
+                          return (
+                            <div key={idx} className="space-y-2">
+                              {/* Message - only show if it's a user message, or if it's Composite and NOT the last message */}
+                              {(msg.role === 'user' || !isLastMessage) && (
+                                <div className={`p-2.5 rounded-lg text-xs ${
+                                  msg.role === 'user'
+                                    ? 'bg-[#F06423]/10 border border-[#F06423]/20 ml-4'
+                                    : 'bg-white/60 border border-white/20 mr-4'
+                                }`}>
+                                  <p className="text-slate-700 leading-relaxed">{msg.message}</p>
                                 </div>
-                                <div className="space-y-2">
-                                  {msg.progressSnapshot.map((step, stepIdx) => {
-                                    const hasStarted = step.status !== 'pending';
-                                    if (!hasStarted) return null;
-                                    
-                                    return (
+                              )}
+                              
+                              {/* Show LIVE todolist for last message, or frozen snapshot for previous messages */}
+                              {selectedThread.majorSteps && (
+                                <div className="bg-white/60 border border-white/20 rounded-lg p-2.5 mr-4">
+                                  <div className="space-y-2">
+                                    {(isLastMessage ? selectedThread.majorSteps : (msg.progressSnapshot || [])).map((step, stepIdx) => (
                                       <div key={step.id} className="space-y-1">
                                         <div className="flex items-start gap-2">
                                           {step.status === 'completed' ? (
                                             <CheckCircle className="w-3 h-3 text-green-500 flex-shrink-0 mt-0.5" />
-                                          ) : step.status === 'executing' ? (
+                                          ) : step.status === 'executing' && isLastMessage && selectedThread.status === 'executing' ? (
                                             <Loader className="w-3 h-3 text-[#F06423] flex-shrink-0 mt-0.5" />
-                                          ) : (
+                                          ) : step.status === 'pending' && isLastMessage && selectedThread.status === 'executing' ? (
                                             <div className="w-3 h-3 rounded-full border-2 border-slate-300 flex-shrink-0 mt-0.5" />
+                                          ) : (
+                                            <X className="w-3 h-3 text-slate-400 flex-shrink-0 mt-0.5" />
                                           )}
                                           <div className="flex-1">
-                                            <p className="text-[10px] font-semibold text-slate-700">
+                                            <p className={`text-[10px] font-semibold ${step.status === 'completed' || (isLastMessage && selectedThread.status === 'executing') ? 'text-slate-700' : 'text-slate-400 line-through'}`}>
                                               {stepIdx + 1}. {step.title}
                                             </p>
                                             
                                             {/* Show substeps if any are completed */}
                                             {step.completedAtomicSteps && step.completedAtomicSteps.length > 0 && (
-                                              <ul className="space-y-0.5 mt-1 pl-2">
+                                              <ul className="space-y-0.5 mt-1.5 pl-2">
                                                 {step.completedAtomicSteps.map((atomicStep, atomicIdx) => (
-                                                  <li key={atomicIdx} className="text-[9px] text-slate-600 flex items-start gap-1">
+                                                  <li key={atomicIdx} className="text-[10px] text-slate-600 flex items-start gap-1.5">
                                                     <span className="text-green-500 flex-shrink-0">✓</span>
                                                     <span className="flex-1">{atomicStep}</span>
                                                   </li>
@@ -1529,79 +1758,40 @@ export default function BrowserCopilot() {
                                           </div>
                                         </div>
                                       </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                      
-                      {/* Major Steps Progress - Always visible with all substeps */}
-                      {selectedThread.majorSteps && (
-                        <div className="border-t border-white/10 pt-3">
-                          <p className="text-[10px] font-semibold text-slate-600 mb-2 uppercase tracking-wide">
-                            Progress ({selectedThread.majorSteps.filter(s => s.status === 'completed').length}/{selectedThread.majorSteps.length} steps)
-                          </p>
-                          <div className="space-y-2">
-                            {selectedThread.majorSteps.map((step, idx) => (
-                              <div key={step.id} className="space-y-1">
-                                <div className="flex items-start gap-2">
-                                  {step.status === 'completed' ? (
-                                    <CheckCircle className="w-3.5 h-3.5 text-green-500 flex-shrink-0 mt-0.5" />
-                                  ) : step.status === 'executing' ? (
-                                    <Loader className="w-3.5 h-3.5 text-[#F06423] flex-shrink-0 mt-0.5" />
-                                  ) : (
-                                    <div className="w-3.5 h-3.5 rounded-full border-2 border-slate-300 flex-shrink-0 mt-0.5" />
-                                  )}
-                                  <div className="flex-1 min-w-0">
-                                    <p className={`text-[11px] font-medium ${step.status === 'pending' ? 'text-slate-500' : 'text-slate-700'}`}>
-                                      {idx + 1}. {step.title}
-                                    </p>
-                                    
-                                    {/* Show ALL substeps if any are completed */}
-                                    {step.completedAtomicSteps && step.completedAtomicSteps.length > 0 && (
-                                      <ul className="space-y-0.5 mt-1.5 pl-2">
-                                        {step.completedAtomicSteps.map((atomicStep, atomicIdx) => (
-                                          <li key={atomicIdx} className="text-[10px] text-slate-600 flex items-start gap-1.5">
-                                            <span className="text-green-500 flex-shrink-0">✓</span>
-                                            <span className="flex-1">{atomicStep}</span>
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    )}
+                                    ))}
                                   </div>
                                 </div>
-                              </div>
-                            ))}
+                              )}
+                            </div>
+                          );
+                        })}
+                        
+                        {/* Show final completion message from Composite AFTER the todolist */}
+                        {selectedThread.status === 'success' && selectedThread.currentAction && (
+                          <div className="p-2.5 rounded-lg text-xs bg-white/60 border border-white/20 mr-4">
+                            <p className="text-slate-700 leading-relaxed">{selectedThread.currentAction}</p>
                           </div>
-                        </div>
-                      )}
-                      
-                      {/* Current Status */}
-                      <div className="border-t border-white/10 pt-2">
-                        <div className="flex items-start gap-2 p-2 rounded-lg bg-white/40">
-                          {getStatusIcon(selectedThread.status)}
-                          <div className="flex-1">
-                            <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-wide mb-0.5">
-                              Current Status
-                            </p>
-                            <p className="text-[11px] text-slate-700 leading-relaxed">
-                              {selectedThread.currentAction}
-                            </p>
+                        )}
+                        
+                        {/* Show clarification message from Composite AFTER the todolist */}
+                        {selectedThread.status === 'clarification_needed' && selectedThread.currentAction && (
+                          <div className="p-2.5 rounded-lg text-xs bg-white/60 border border-white/20 mr-4">
+                            <p className="text-slate-700 leading-relaxed">{selectedThread.currentAction}</p>
                           </div>
-                        </div>
+                        )}
                       </div>
-                    </div>
+                      </div>
+                    </>
                   );
                 })()
               ) : showThreadsModal ? (
                 /* Threads View - Full Conversation History */
-                <div className="space-y-3">
+                <>
                   {threads.length === 0 ? (
+                    <div className="p-4">
                     <div className="text-center py-8">
                       <p className="text-xs text-slate-500">No active threads</p>
+                    </div>
                     </div>
                   ) : replyThreadId ? (
                     /* Show detailed view of selected thread - Reply mode is default */
@@ -1610,84 +1800,77 @@ export default function BrowserCopilot() {
                       if (!selectedThread) return null;
                       
                       return (
-                        <div className="space-y-3">
-                          {/* Back button */}
-                          <button
-                            onClick={() => {
-                              setReplyThreadId(null);
-                              setIsReplyMode(false);
-                            }}
-                            className="flex items-center gap-2 text-xs text-slate-600 hover:text-[#111111] transition-colors"
-                          >
-                            <CornerUpLeft className="w-3 h-3" />
-                            Back to all threads
-                          </button>
-                          
-                          {/* Thread Title */}
-                          <div className="pb-2 border-b border-white/10">
-                            <div className="flex items-center gap-2">
-                              <CompositeLogoMark className="w-4 h-4 text-[#F06423] flex-shrink-0" />
-                              <h3 className="text-sm font-semibold text-[#111111]">{selectedThread.command}</h3>
+                        <>
+                          {/* Sticky Header */}
+                          <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm border-b border-white/20 p-4 space-y-3">
+                            {/* Back button */}
+                            <button
+                              onClick={() => {
+                                setReplyThreadId(null);
+                                setIsReplyMode(false);
+                              }}
+                              className="flex items-center gap-2 text-xs text-slate-600 hover:text-[#111111] transition-colors"
+                            >
+                              <CornerUpLeft className="w-3 h-3" />
+                              Chat History
+                              <span className="ml-auto px-1.5 py-0.5 text-[10px] bg-slate-200 text-slate-600 rounded font-medium">Esc</span>
+                            </button>
+                            
+                            {/* Thread Title */}
+                            <div className="pb-2 border-b border-white/10">
+                              <div className="flex items-center gap-2">
+                                <CompositeLogoMark className="w-4 h-4 text-[#F06423] flex-shrink-0" />
+                                <h3 className="text-sm font-semibold text-[#111111]">{selectedThread.command}</h3>
+                              </div>
+                              <p className="text-[10px] text-slate-500 mt-1">
+                                {selectedThread.timestamp.toLocaleString()}
+                              </p>
                             </div>
-                            <p className="text-[10px] text-slate-500 mt-1">
-                              {selectedThread.timestamp.toLocaleString()}
-                            </p>
                           </div>
                           
-                          {/* Conversation History - Chat Flow */}
-                          <div className="space-y-2 overflow-y-auto">
-                            {selectedThread.conversationHistory && selectedThread.conversationHistory.map((msg, idx) => (
-                              <div key={idx} className="space-y-2">
-                                {/* User or Composite Message */}
-                                <div
-                                  className={`p-2.5 rounded-lg text-xs ${
+                          {/* Scrollable Conversation History */}
+                          <div className="p-4 pt-0 overflow-y-auto">
+                          <div className="space-y-2">
+                            {selectedThread.conversationHistory && selectedThread.conversationHistory.map((msg, idx) => {
+                              const isLastMessage = idx === selectedThread.conversationHistory.length - 1;
+                              
+                              return (
+                                <div key={idx} className="space-y-2">
+                                  {/* Message - User or Composite */}
+                                  <div className={`p-2.5 rounded-lg text-xs ${
                                     msg.role === 'user'
                                       ? 'bg-[#F06423]/10 border border-[#F06423]/20 ml-4'
                                       : 'bg-white/60 border border-white/20 mr-4'
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-1.5 mb-1">
-                                    <span className="font-semibold text-[10px] text-slate-700">
-                                      {msg.role === 'user' ? 'You' : 'Composite'}
-                                    </span>
-                                    <span className="text-[9px] text-slate-500">
-                                      {msg.timestamp.toLocaleTimeString()}
-                                    </span>
+                                  }`}>
+                                    <p className="text-slate-700 leading-relaxed">{msg.message}</p>
                                   </div>
-                                  <p className="text-slate-700 leading-relaxed">{msg.message}</p>
-                                </div>
-                                
-                                {/* Show todolist snapshot from this specific point in time */}
-                                {msg.progressSnapshot && msg.progressSnapshot.some(s => s.status !== 'pending') && (
-                                  <div className="bg-white/60 border border-white/20 rounded-lg p-2.5 mr-4">
-                                    <div className="flex items-center gap-1.5 mb-2">
-                                      <span className="font-semibold text-[10px] text-slate-700">Progress at this time</span>
-                                    </div>
-                                    <div className="space-y-2">
-                                      {msg.progressSnapshot.map((step, stepIdx) => {
-                                        const hasStarted = step.status !== 'pending';
-                                        if (!hasStarted) return null;
-                                        
-                                        return (
+                                  
+                                  {/* Show LIVE todolist for last message, or frozen snapshot for previous messages */}
+                                  {selectedThread.majorSteps && (
+                                    <div className="bg-white/60 border border-white/20 rounded-lg p-2.5 mr-4">
+                                      <div className="space-y-2">
+                                        {(isLastMessage ? selectedThread.majorSteps : (msg.progressSnapshot || [])).map((step, stepIdx) => (
                                           <div key={step.id} className="space-y-1">
                                             <div className="flex items-start gap-2">
                                               {step.status === 'completed' ? (
                                                 <CheckCircle className="w-3 h-3 text-green-500 flex-shrink-0 mt-0.5" />
-                                              ) : step.status === 'executing' ? (
+                                              ) : step.status === 'executing' && isLastMessage && selectedThread.status === 'executing' ? (
                                                 <Loader className="w-3 h-3 text-[#F06423] flex-shrink-0 mt-0.5" />
-                                              ) : (
+                                              ) : step.status === 'pending' && isLastMessage && selectedThread.status === 'executing' ? (
                                                 <div className="w-3 h-3 rounded-full border-2 border-slate-300 flex-shrink-0 mt-0.5" />
+                                              ) : (
+                                                <X className="w-3 h-3 text-slate-400 flex-shrink-0 mt-0.5" />
                                               )}
                                               <div className="flex-1">
-                                                <p className="text-[10px] font-semibold text-slate-700">
+                                                <p className={`text-[10px] font-semibold ${step.status === 'completed' || (isLastMessage && selectedThread.status === 'executing') ? 'text-slate-700' : 'text-slate-400 line-through'}`}>
                                                   {stepIdx + 1}. {step.title}
                                                 </p>
                                                 
                                                 {/* Show substeps if any are completed */}
                                                 {step.completedAtomicSteps && step.completedAtomicSteps.length > 0 && (
-                                                  <ul className="space-y-0.5 mt-1 pl-2">
+                                                  <ul className="space-y-0.5 mt-1.5 pl-2">
                                                     {step.completedAtomicSteps.map((atomicStep, atomicIdx) => (
-                                                      <li key={atomicIdx} className="text-[9px] text-slate-600 flex items-start gap-1">
+                                                      <li key={atomicIdx} className="text-[10px] text-slate-600 flex items-start gap-1.5">
                                                         <span className="text-green-500 flex-shrink-0">✓</span>
                                                         <span className="flex-1">{atomicStep}</span>
                                                       </li>
@@ -1697,86 +1880,37 @@ export default function BrowserCopilot() {
                                               </div>
                                             </div>
                                           </div>
-                                        );
-                                      })}
+                                        ))}
+                                      </div>
                                     </div>
-                                  </div>
-                                )}
+                                  )}
+                                </div>
+                              );
+                            })}
+                            
+                            {/* Show final completion message from Composite AFTER the todolist */}
+                            {selectedThread.status === 'success' && selectedThread.currentAction && (
+                              <div className="p-2.5 rounded-lg text-xs bg-white/60 border border-white/20 mr-4">
+                                <p className="text-slate-700 leading-relaxed">{selectedThread.currentAction}</p>
                               </div>
-                            ))}
+                            )}
+                            
+                            {/* Show clarification message from Composite AFTER the todolist */}
+                            {selectedThread.status === 'clarification_needed' && selectedThread.currentAction && (
+                              <div className="p-2.5 rounded-lg text-xs bg-white/60 border border-white/20 mr-4">
+                                <p className="text-slate-700 leading-relaxed">{selectedThread.currentAction}</p>
+                              </div>
+                            )}
                           </div>
-                          
-                          {/* Major Steps Progress */}
-                          {selectedThread.majorSteps && (
-                            <div className="border-t border-white/10 pt-3">
-                              <p className="text-[10px] font-semibold text-slate-600 mb-2 uppercase tracking-wide">Progress</p>
-                              <div className="space-y-2">
-                                {selectedThread.majorSteps.map((step, idx) => (
-                                  <div key={step.id} className="flex items-start gap-2">
-                                    {step.status === 'completed' ? (
-                                      <CheckCircle className="w-3.5 h-3.5 text-green-500 flex-shrink-0 mt-0.5" />
-                                    ) : step.status === 'executing' ? (
-                                      <Loader className="w-3.5 h-3.5 text-[#F06423] flex-shrink-0 mt-0.5" />
-                                    ) : (
-                                      <div className="w-3.5 h-3.5 rounded-full border-2 border-slate-300 flex-shrink-0 mt-0.5" />
-                                    )}
-                                    <div className="flex-1 min-w-0">
-                                      <p className={`text-[11px] ${step.status === 'pending' ? 'text-slate-500' : 'text-slate-700'}`}>
-                                        {idx + 1}. {step.title}
-                                      </p>
-                                      {step.completedAtomicSteps && step.completedAtomicSteps.length > 0 && (
-                                        <p className="text-[10px] text-slate-500 mt-0.5">
-                                          {step.completedAtomicSteps.length} / {step.atomicSteps.length} steps completed
-                                        </p>
-                                      )}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          
-                          {/* Current Status */}
-                          <div className="border-t border-white/10 pt-3">
-                            <div className="flex items-start gap-2 p-2.5 rounded-lg bg-white/40">
-                              {getStatusIcon(selectedThread.status)}
-                              <div className="flex-1">
-                                <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-wide mb-1">
-                                  Current Status
-                                </p>
-                                <p className="text-xs text-slate-700 leading-relaxed">
-                                  {selectedThread.currentAction}
-                                </p>
-                              </div>
-                            </div>
                           </div>
-                          
-                          {/* Action Buttons */}
-                          {selectedThread.status === 'executing' && (
-                            <div className="border-t border-white/10 pt-3">
-                              <button
-                                onClick={() => {
-                                  setThreads((prev) =>
-                                    prev.map((t) =>
-                                      t.id === replyThreadId
-                                        ? { ...t, status: 'cancelled', currentAction: 'Task stopped by user' }
-                                        : t
-                                    )
-                                  );
-                                }}
-                                className="w-full px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors text-xs font-medium"
-                              >
-                                Stop Execution
-                              </button>
-                            </div>
-                          )}
-                        </div>
+                        </>
                       );
                     })()
                   ) : (
                     /* Thread List View */
-                    threads.map((thread, idx) => {
-                      const statusInfo = getThreadStatusIndicator(thread.status, thread.notificationDismissed);
+                    <div className="p-4">
+                    {threads.map((thread, idx) => {
+                      const statusInfo = getThreadStatusIndicator(thread.status, thread.notificationDismissed, thread.id);
                       const isActive = replyThreadId === thread.id;
                       
                       return (
@@ -1786,6 +1920,13 @@ export default function BrowserCopilot() {
                             setReplyThreadId(thread.id);
                             setActiveThreadId(thread.id);
                             setIsReplyMode(true); // Automatically enter reply mode
+                            // Track that this thread has been viewed (like macOS Messages)
+                            setThreadViewTimestamps(prev => ({
+                              ...prev,
+                              [thread.id]: Date.now()
+                            }));
+                            // Hide any notification for this thread
+                            setVisibleNotifications(prev => prev.filter(id => id !== thread.id));
                             // Mark notification as dismissed if it was completed
                             if (thread.status === 'success' && !thread.notificationDismissed) {
                               setThreads(prev => prev.map(t => 
@@ -1811,112 +1952,38 @@ export default function BrowserCopilot() {
                           <ChevronRight className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
                         </button>
                       );
-                    })
+                    })}
+                    </div>
                   )}
-                </div>
-              ) : showChromeModal ? (
-                /* Chrome Extension Content */
-                <div className="space-y-3">
-                  {/* Main content in horizontal layout */}
-                  <div className="grid grid-cols-2 gap-3">
-                    {/* Left column - Status */}
-                    <div className="space-y-2">
-                      <div className="glass-card rounded-lg p-3 border border-white/20">
-                        <p className="text-xs text-slate-600 mb-2 font-medium">Extension Status</p>
-                        <div className="flex items-center gap-2 mb-1">
-                          <div className={`w-2 h-2 rounded-full ${chromeConnected ? 'bg-green-500' : 'bg-[#F06423]'}`} />
-                          <span className={`text-sm font-semibold ${chromeConnected ? 'text-green-600' : 'text-[#F06423]'}`}>
-                            {chromeConnected ? 'Connected' : 'Not Connected'}
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-600">Version: 1.6.3</p>
-                      </div>
-                      <div className="glass-card rounded-lg p-3 flex items-center justify-between border border-white/20">
-                        <div className="flex items-center gap-2">
-                          <CheckCircle className="w-4 h-4 text-green-500" />
-                          <span className="text-xs text-[#111111] font-medium">Chrome (Default)</span>
-                        </div>
-                        <button className="text-xs text-[#F06423] hover:text-[#F06423]/80 font-medium">Rescan</button>
-                      </div>
-                    </div>
-                    
-                    {/* Right column - Info & Action */}
-                    <div className="space-y-2">
-                      <div className="glass-alert rounded-lg p-3 h-full flex flex-col justify-between border border-[#F06423]/20">
-                        <div>
-                          <div className="flex items-start gap-2 mb-3">
-                            <AlertCircle className="w-4 h-4 text-[#F06423] mt-0.5 flex-shrink-0" />
-                            <p className="text-xs text-[#111111]">Ensure extension is active on only one browser profile.</p>
-                          </div>
-                        </div>
-                        <button className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-[#F06423] hover:bg-[#F06423]/90 text-white rounded-lg transition-colors text-xs font-medium">
-                          <ExternalLink className="w-3.5 h-3.5" />
-                          Install from Chrome Web Store
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                </>
               ) : showSettingsModal ? (
                 /* Settings Content */
-                <div className="space-y-2.5">
-                  {/* Header */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full bg-[#F06423] flex items-center justify-center text-white font-bold text-xs">W</div>
-                      <div>
-                        <p className="text-xs font-medium text-[#111111]">wasabininjaa@gmail.com</p>
-                        <div className="flex items-center gap-1 mt-0.5">
+                <div className="p-4">
+                  {/* Header with inline extension info */}
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-full bg-[#F06423] flex items-center justify-center text-white font-bold text-xs">W</div>
+                    <div>
+                      <p className="text-xs font-medium text-[#111111]">wasabininjaa@gmail.com</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <div className="flex items-center gap-1">
                           <ChromeIcon className="w-3 h-3 text-slate-600" />
                           <span className={`w-1.5 h-1.5 rounded-full ${chromeConnected ? 'bg-green-500' : 'bg-[#F06423]'}`} />
-                          <span className="text-[10px] text-slate-600">Extension {chromeConnected ? 'Connected' : 'Disconnected'}</span>
+                          <span className="text-[10px] text-slate-600">{chromeConnected ? 'Connected' : 'Disconnected'}</span>
                         </div>
+                        <span className="text-[10px] text-slate-400">•</span>
+                        <span className="text-[10px] text-slate-600">Chrome (Default)</span>
+                        <span className="text-[10px] text-slate-400">•</span>
+                        <button className="text-[10px] text-[#F06423] hover:text-[#F06423]/80 font-medium">Rescan</button>
+                        <span className="text-[10px] text-slate-400">•</span>
+                        <button className="text-[10px] text-[#F06423] hover:text-[#F06423]/80 font-medium">Install Extension</button>
+                        <span className="text-[10px] text-slate-400">•</span>
+                        <button onClick={() => window.open('settings.html', '_blank')} className="text-[10px] text-[#F06423] hover:text-[#F06423]/80 font-medium">More Settings</button>
                       </div>
                     </div>
-                  </div>
-                  
-                  {/* Menu items in 3-column grid */}
-                  <div className="grid grid-cols-3 gap-2">
-                    <button className="flex flex-col items-center gap-1.5 px-2 py-2.5 glass-menu-item rounded-lg transition-colors border border-white/20">
-                      <User className="w-4 h-4 text-slate-700" />
-                      <span className="text-[10px] text-[#111111] font-medium">Profile</span>
-                    </button>
-                    <button className="flex flex-col items-center gap-1.5 px-2 py-2.5 glass-menu-item rounded-lg transition-colors border border-white/20">
-                      <CreditCard className="w-4 h-4 text-slate-700" />
-                      <span className="text-[10px] text-[#111111] font-medium">Billing</span>
-                    </button>
-                    <button className="flex flex-col items-center gap-1.5 px-2 py-2.5 glass-menu-item rounded-lg transition-colors border border-white/20">
-                      <Palette className="w-4 h-4 text-slate-700" />
-                      <span className="text-[10px] text-[#111111] font-medium">Theme</span>
-                    </button>
-                    <button className="flex flex-col items-center gap-1.5 px-2 py-2.5 glass-menu-item rounded-lg transition-colors border border-white/20">
-                      <Ban className="w-4 h-4 text-slate-700" />
-                      <span className="text-[10px] text-[#111111] font-medium">Blocklist</span>
-                    </button>
-                    <button className="flex flex-col items-center gap-1.5 px-2 py-2.5 glass-menu-item rounded-lg transition-colors border border-white/20">
-                      <FileText className="w-4 h-4 text-slate-700" />
-                      <span className="text-[10px] text-[#111111] font-medium">Changelog</span>
-                    </button>
-                    <button className="flex flex-col items-center gap-1.5 px-2 py-2.5 glass-menu-item rounded-lg transition-colors border border-white/20">
-                      <BarChart className="w-4 h-4 text-slate-700" />
-                      <span className="text-[10px] text-[#111111] font-medium">Usage</span>
-                    </button>
-                    <button className="flex flex-col items-center gap-1.5 px-2 py-2.5 glass-menu-item rounded-lg transition-colors border border-white/20">
-                      <HelpCircle className="w-4 h-4 text-slate-700" />
-                      <span className="text-[10px] text-[#111111] font-medium">Support</span>
-                    </button>
-                    <button className="flex flex-col items-center gap-1.5 px-2 py-2.5 glass-menu-item rounded-lg transition-colors border border-white/20">
-                      <Users className="w-4 h-4 text-slate-700" />
-                      <span className="text-[10px] text-[#111111] font-medium">Community</span>
-                    </button>
-                    <button className="flex flex-col items-center gap-1.5 px-2 py-2.5 glass-menu-item rounded-lg transition-colors border border-white/20">
-                      <LogOut className="w-4 h-4 text-slate-700" />
-                      <span className="text-[10px] text-[#111111] font-medium">Logout</span>
-                    </button>
                   </div>
                 </div>
               ) : showSuggestions && input.trim() === '' ? (
-                <div className="space-y-2">
+                <div className="p-4 space-y-2">
                   {suggestions.map((suggestion, idx) => (
                     <button
                       key={idx}
@@ -1931,13 +1998,13 @@ export default function BrowserCopilot() {
                   ))}
                 </div>
               ) : null}
-            </div>
+              </div>
             )}
 
             {/* Tab Navigation - Chrome Style (hidden in reply mode) */}
             {!isReplyMode && (
               <div className="relative glass-nav px-4 pb-2">
-                {(showSuggestions || showThreadsModal || showChromeModal || showSettingsModal) && (
+                {(showSuggestions || showThreadsModal || showSettingsModal) && (
                   <div className="absolute top-[4px] left-0 right-0 h-[2px] bg-[#F06423] z-0" />
                 )}
                 <div className="flex gap-1 pt-1.5 relative z-10">
@@ -1946,7 +2013,6 @@ export default function BrowserCopilot() {
                   onClick={() => {
                     // Toggle suggestions on/off
                     setShowSuggestions(!showSuggestions);
-                    setShowChromeModal(false);
                     setShowSettingsModal(false);
                     setShowThreadsModal(false);
                   }}
@@ -1971,7 +2037,6 @@ export default function BrowserCopilot() {
                   onClick={() => {
                     // Toggle Chat History on/off
                     setShowThreadsModal(!showThreadsModal);
-                    setShowChromeModal(false);
                     setShowSettingsModal(false);
                     setShowSuggestions(false);
                   }}
@@ -1996,38 +2061,11 @@ export default function BrowserCopilot() {
                   )}
                 </button>
 
-                {/* Status Tab */}
-                <button
-                  onClick={() => {
-                    // Toggle Status on/off
-                    setShowChromeModal(!showChromeModal);
-                    setShowSettingsModal(false);
-                    setShowThreadsModal(false);
-                    setShowSuggestions(false);
-                  }}
-                  className={`relative flex items-center justify-center ${
-                    showChromeModal ? 'w-auto px-4 gap-2' : 'w-10'
-                  } py-2 text-xs font-medium transition-all rounded-b-lg ${
-                    showChromeModal
-                      ? 'bg-white text-[#F06423] shadow-sm border-l-2 border-r-2 border-b-2 border-[#F06423]'
-                      : 'bg-transparent text-slate-600 hover:text-[#111111] hover:bg-white/40'
-                  }`}
-                  style={{
-                    marginTop: showChromeModal ? '-2px' : '0px',
-                    paddingTop: showChromeModal ? 'calc(0.5rem + 2px)' : '0.5rem',
-                  }}
-                >
-                  <ChromeIcon className="w-4 h-4 flex-shrink-0" />
-                  {showChromeModal && <span>Status</span>}
-                  <span className={`absolute top-0 right-0 w-[10px] h-[10px] rounded-full border border-white ${chromeConnected ? 'bg-green-500' : 'bg-[#F06423]'}`} />
-                </button>
-
                 {/* Settings Tab */}
                 <button
                   onClick={() => {
                     // Toggle Settings on/off
                     setShowSettingsModal(!showSettingsModal);
-                    setShowChromeModal(false);
                     setShowThreadsModal(false);
                     setShowSuggestions(false);
                   }}
@@ -2045,6 +2083,7 @@ export default function BrowserCopilot() {
                 >
                   <Settings className="w-4 h-4 flex-shrink-0" />
                   {showSettingsModal && <span>Settings</span>}
+                  <span className={`absolute top-0 right-0 w-[10px] h-[10px] rounded-full border border-white ${chromeConnected ? 'bg-green-500' : 'bg-[#F06423]'}`} />
                 </button>
 
                 {/* Spacer */}
@@ -2094,12 +2133,27 @@ export default function BrowserCopilot() {
                   placeholder={isReplyMode ? "Reply to Composite" : "Describe your browser task. Watch it get done."}
                   className="flex-1 outline-none text-sm text-[#111111] placeholder-slate-500 bg-transparent"
                 />
-                <button
-                  onClick={() => setShowSpotlight(false)}
-                  className="p-1 hover:bg-[#F8F7F4] rounded transition-colors"
-                >
-                  <X className="w-4 h-4 text-slate-600" />
-                </button>
+                <div className="flex items-center gap-1">
+                  {/* Stop button - only show when in reply mode AND thread is executing */}
+                  {isReplyMode && replyThreadId && (() => {
+                    const replyThread = threads.find(t => t.id === replyThreadId);
+                    return replyThread && replyThread.status === 'executing' && (
+                      <button
+                        onClick={() => handleStopExecution(replyThreadId)}
+                        className="p-1 hover:bg-[#F8F7F4] rounded transition-colors flex-shrink-0"
+                        title="Stop execution"
+                      >
+                        <Square className="w-4 h-4 text-slate-600" />
+                      </button>
+                    );
+                  })()}
+                  <button
+                    onClick={() => setShowSpotlight(false)}
+                    className="p-1 hover:bg-[#F8F7F4] rounded transition-colors"
+                  >
+                    <X className="w-4 h-4 text-slate-600" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
