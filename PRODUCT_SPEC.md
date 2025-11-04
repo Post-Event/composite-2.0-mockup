@@ -89,8 +89,11 @@ The system MUST consist of:
 - Optional: Snap to edges/corners for convenient positioning
 
 **Input Field**
-- Single-line text input at bottom of modal
-- Composite logo icon displayed on left side of input
+- Multi-line text input at bottom of modal
+  - Automatically grows from 1 line up to maximum 6 lines as user types
+  - Text wraps naturally to new lines
+  - Becomes scrollable if content exceeds 6 lines
+- Composite logo icon displayed on left side of input (aligned to top)
 - Placeholder text:
   - Default: "Describe your browser task. Watch it get done."
   - When replying to thread: "Reply to Composite"
@@ -104,13 +107,18 @@ The system MUST consist of:
     - Same functionality as pressing Enter
   - Close button (X icon) - always visible
 - Input automatically focused when spotlight opens
-- Enter key submits command
+- Enter key submits command (Shift+Enter adds new line)
 - Text styling: medium size, dark text on light/transparent background
 
 **Content Area (Above Input)**
 - Scrollable region with maximum height constraint
-- Displays one of two views: Suggestions or Chat History
-- Empty when all tabs closed
+- Displays one of four views (when a tab is toggled on):
+  1. **Suggestions View**: Example tasks with keyboard shortcuts
+  2. **Chat History View**: List of all task threads
+  3. **Reply Mode / Thread Detail View**: Individual thread conversation (replaces Chat History view)
+  4. **Settings View**: Quick settings and extension status
+- **Default state**: Suggestions tab toggled on (shows Suggestions View)
+- **Empty state**: When all tabs are toggled off, content area is not displayed at all
 - Glass morphism continuation for visual consistency
 
 ### 3.2 Tab Navigation System
@@ -118,11 +126,15 @@ The system MUST consist of:
 **Tab Bar Positioning**
 - Located between content area and input field
 - Horizontal layout with left-aligned tabs
-- Action buttons (Settings icon button) positioned on right side
+- Three tabs: Suggestions, Chat History, Settings
+- Action button (Sharing button) positioned on right side
 - Subtle separator line or visual break from content area
 
 **Tab Behavior**
-- Two primary tabs: Suggestions, Chat History
+- Three primary tabs: Suggestions, Chat History, Settings
+- All tabs are **toggleable** (click to show/hide their content)
+- Multiple tabs can be closed simultaneously (content area disappears entirely)
+- Only one tab can be active/open at a time (mutually exclusive)
 - Tabs expand on selection (show icon + label)
 - Tabs collapse when inactive (show icon only, fixed width ~40px)
 - Active tab styling:
@@ -140,9 +152,10 @@ The system MUST consist of:
 
 1. **Suggestions Tab**
    - Icon: Lightbulb
-   - Active by default when Spotlight opens
+   - **Toggled ON by default** when Spotlight opens (default view)
    - Toggleable (click to show/hide)
-   - Automatically untoggles when user starts typing in input field
+   - Automatically untoggles (closes) when user starts typing in input field
+   - Clicking again while active will close the tab (hide content area)
    - No notification badge
    - Tooltip: "Suggestions (⌘S)"
 
@@ -159,17 +172,18 @@ The system MUST consist of:
      - Exclude threads that have been viewed since last action
    - Tooltip: "Chat History (⌘B)"
 
-**Settings Button (Replaces Settings Tab)**
-- Positioned on right side of tab bar
-- Icon: Gear/Settings icon
-- Click action: Opens standalone settings page in separate window/view
-- MUST display connection status indicator
-- Status dot positioning: top-right corner of icon
-- Status dot styling:
-  - Green dot: Connected
-  - Orange dot: Disconnected
-  - ~10px diameter, circular, white border
-- Tooltip: "Settings (⌘,)"
+3. **Settings Tab**
+   - Icon: Gear/Settings icon
+   - Toggleable (click to show/hide)
+   - MUST display connection status indicator
+   - Status dot positioning: top-right corner of icon
+   - Status dot styling:
+     - Green dot: Connected
+     - Orange dot: Disconnected
+     - ~10px diameter, circular, white border
+   - Tooltip: "Settings (⌘,)"
+
+**Additional Action Buttons (Right Side of Tab Bar)**
 
 **Sharing Button**
 - Positioned on right side of tab bar (after Settings button)
@@ -197,17 +211,23 @@ The system MUST consist of:
 ### 3.3 Suggestions View
 
 **Display Conditions**
-- Shown when Suggestions tab is active
-- Suggestions tab is active by default when Spotlight opens
-- Automatically becomes inactive (untoggles) when user starts typing in input field
-- Hidden when other tabs are active
+- Shown when Suggestions tab is toggled on (active)
+- **Toggled ON by default** when Spotlight opens (default view shown to user)
+- Automatically becomes inactive (untoggles/closes) when user starts typing in input field
+- Hidden when other tabs are active (mutually exclusive)
 - Can be manually toggled on/off at any time via the tab button
+- When toggled off, content area disappears (unless another tab is active)
 
 **Suggestion Items**
 - List of 4+ pre-configured example tasks
 - Each suggestion is clickable button
 - Keyboard shortcuts displayed: ⌘1, ⌘2, ⌘3, ⌘4 for first four suggestions
-- Clicking suggestion immediately executes that command
+- **Click behavior**: Fills the input field with the suggestion text
+  - Does NOT immediately execute
+  - Input field is automatically focused after filling
+  - Cursor is positioned at the end of the text
+  - User can immediately press Enter to execute, or review/edit first
+  - Allows user to customize the suggestion before execution
 
 **Suggestion Button Design**
 - Full-width layout
@@ -257,7 +277,33 @@ The system MUST consist of:
 - When no threads exist: Display centered message "No active threads"
 - Styling: small gray text, centered in content area
 
-### 3.5 Reply Mode / Thread Detail View
+### 3.5 Settings View
+
+**Display Conditions**
+- Shown when Settings tab is active
+- Displays quick settings and extension connection status
+- Minimal view with link to full settings page
+
+**Content**
+- **Header Section**:
+  - User avatar (circular, with user initial)
+  - Email address (e.g., "wasabininjaa@gmail.com")
+  - Extension connection status:
+    - Chrome icon with colored status dot
+    - Status text: "Connected" (green) or "Disconnected" (orange)
+    - Browser name and default indicator (e.g., "Chrome (Default)")
+- **Quick Actions** (inline links separated by bullets):
+  - "Rescan" - Re-scan for browser extensions
+  - "Install Extension" - Link to install browser extension
+  - "More Settings" - Opens full standalone settings page in new window/tab
+
+**Visual Styling**
+- Compact layout with minimal padding
+- Small text sizes for efficient space usage
+- Orange accent color (#F06423) for action links
+- Status indicators match global color scheme
+
+### 3.6 Reply Mode / Thread Detail View
 
 **Entry Points**
 - Click any thread from Chat History list
@@ -359,10 +405,10 @@ The system MUST consist of:
 - Input field cleared
 - Thread remains selected in list
 
-### 3.6 Settings Page (Standalone)
+### 3.7 Settings Page (Standalone - Full Version)
 
 **Overview**
-- Settings accessed via gear icon button in Spotlight tab bar
+- Accessed via "More Settings" link in Settings View (3.5)
 - Opens as separate page/window (not within Spotlight modal)
 - Full-page layout with professional settings interface
 - Persists independently from Spotlight interface
@@ -477,28 +523,35 @@ Organized into sections with uppercase section headers:
 - External links open in new tab/browser
 - Back to main app via window close or app navigation
 
-### 3.7 Navigation Between Spotlight and Settings
+### 3.8 Navigation Between Spotlight and Settings
 
-**Opening Settings Page**
-- Click Settings button (gear icon) on right side of Spotlight tab bar
-- Opens settings page in separate window/view
-- Settings page is independent from Spotlight modal
-- Spotlight can remain open or be closed (product decision)
+**Accessing Settings**
+1. **Quick Settings (within Spotlight)**
+   - Click Settings tab (gear icon) in tab bar
+   - Shows Settings View (3.5) in content area
+   - Displays connection status and quick actions
+   
+2. **Full Settings Page (standalone)**
+   - Click "More Settings" link in Settings View (3.5)
+   - Opens full settings page in separate window/tab
+   - Independent from Spotlight modal
+   - Spotlight can remain open or be closed
 
-**Settings Button Location**
-- Positioned on right side of tab bar in Spotlight
+**Settings Tab Location**
+- Positioned in tab bar (third tab, after Suggestions and Chat History)
 - Shows gear icon
 - Displays connection status dot (green/orange) on top-right corner
+- Toggleable like other tabs
 
 **Returning to Main Application**
 - Close settings window/page via browser close or navigation
 - Settings changes persist and apply to main application
-- No explicit "back to Spotlight" needed if separate window
-- May have app-level navigation if settings within same window
+- Click other tabs in Spotlight to exit Settings View
+- No explicit "back" button needed
 
 **State Synchronization**
 - Settings changes (theme, blocklist, profile) sync immediately to main app
-- Connection status updates reflected in both Spotlight button and Settings page
+- Connection status updates reflected in both Settings tab and full Settings page
 - User profile changes available to task execution context
 
 ---
@@ -536,6 +589,11 @@ A notification MUST be shown for a thread if ALL of the following are true:
 - Offset from edge: ~24px from top, ~24px from right
 - Width: Fixed width (~380px)
 - Stack vertically when multiple notifications present
+
+**Count Synchronization**
+- Number of notification cards shown = Chat History badge count (see 4.6)
+- **1:1 correspondence**: Each notification card corresponds to exactly one unviewed/undismissed thread
+- Badge shows "3" → Exactly 3 notification cards would appear when Spotlight is closed
 
 **Notification Prioritization**
 
@@ -614,14 +672,29 @@ Notifications MUST be sorted by priority to ensure most urgent items appear firs
 
 **Interaction Behaviors**
 - Hover: Subtle shadow increase or border highlight
-  - Shows "Reply ⌘R" button in bottom right corner (macOS style)
-  - Button styling: Light orange background (orange-100), darker gray text (slate-700), orange border (orange-200), medium shadow
-  - Does not take up additional space (overlays on top of content)
-  - Smooth fade-in/fade-out transition
-- Click card body: Open Spotlight with thread in Reply Mode
+  - **"Reply" button display**:
+    - **Collapsed stack (2+ notifications)**: NO reply button on top card (clicking will expand stack)
+    - **Expanded stack**: Shows numbered reply button on each card
+      - First card: "Reply ⌘R"
+      - Second card: "Reply ⌘R2"
+      - Third card: "Reply ⌘R3"
+      - And so on up to 9th card: "Reply ⌘R9"
+    - **Single notification**: Shows "Reply ⌘R" button
+    - Button styling: Light orange background (orange-100), darker gray text (slate-700), orange border (orange-200), medium shadow
+    - Does not take up additional space (overlays on top of content)
+    - Smooth fade-in/fade-out transition
+- Click card body: 
+  - **Single notification**: Open Spotlight with thread in Reply Mode
+  - **Collapsed stack (2+ notifications)**: Expand to show all notifications in stack
+  - **Expanded stack**: Each card opens Spotlight with that thread in Reply Mode
 - Click X button: Dismiss notification (with event propagation stop)
 - Click Stop button: Stop thread execution (with event propagation stop)
-  - Tooltip: "Stop execution (⌘P)"
+  - Tooltip in expanded view: Shows numbered shortcut matching notification position
+    - 1st notification (if executing): "Stop execution (⌘P)"
+    - 2nd notification (if executing): "Stop execution (⌘P2)"
+    - 3rd notification (if executing): "Stop execution (⌘P3)"
+    - Numbers align with Reply button numbers
+  - Tooltip in collapsed/single view: "Stop execution (⌘P)"
   - Only visible when thread is executing
 
 ### 4.5 Notification Dismissal
@@ -662,7 +735,9 @@ Notifications MUST be sorted by priority to ensure most urgent items appear firs
 - Top-right corner of tab
 
 **Count Calculation**
-- Count = Number of threads that need attention AND haven't been dismissed/viewed
+- **CRITICAL**: Badge count MUST equal the number of notification cards that would be shown
+- Count = Number of threads that meet notification triggering conditions (4.1)
+- **1:1 Correspondence**: Each thread counted in badge = one notification card when Spotlight is closed
 - Includes:
   - `executing` threads (not dismissed as ongoing)
   - `clarification_needed` threads (not dismissed)
@@ -672,6 +747,14 @@ Notifications MUST be sorted by priority to ensure most urgent items appear firs
   - Explicitly dismissed ongoing tasks
   - Explicitly dismissed attention-needed threads
   - Cancelled threads
+
+**Synchronization**
+- Badge count updates immediately when:
+  - New notification is triggered
+  - User views a thread (removes from count)
+  - User dismisses a notification
+  - Thread status changes
+- Badge count MUST always match the number of visible notification cards (when Spotlight closed)
 
 **Visual Design**
 - Circular badge
@@ -821,7 +904,10 @@ Notifications MUST be sorted by priority to ensure most urgent items appear firs
 ### 5.6 Task Cancellation/Stopping
 
 **Stop Command Trigger**
-- Keyboard shortcut: `Cmd/Ctrl + P` (when in active thread)
+- Keyboard shortcuts:
+  - `Cmd/Ctrl + P` - When in Spotlight with active executing thread
+  - `Cmd/Ctrl + P` - When Spotlight closed, stops first executing notification
+  - `Cmd/Ctrl + P` + `2-9` - When Spotlight closed, stops notification at that position (if executing)
 - Stop button click in:
   - Notification card (if thread executing)
   - Spotlight input area (if in Reply Mode with executing thread)
@@ -944,9 +1030,12 @@ Notifications MUST be sorted by priority to ensure most urgent items appear firs
 | Shortcut | Action | Context |
 |----------|--------|---------|
 | `Cmd/Ctrl + Shift + Space` | Toggle Spotlight visibility | Global (anywhere in app) |
-| `Cmd/Ctrl + R` | Enter Reply Mode for first visible notification | Global (when Spotlight closed) |
+| `Cmd/Ctrl + R` | Enter Reply Mode for first (top) visible notification | Global (when Spotlight closed) |
+| `Cmd/Ctrl + R` + `2-9` | Enter Reply Mode for 2nd-9th visible notification | Global (when Spotlight closed, multiple notifications) |
 | `Cmd/Ctrl + R` | Enter Reply Mode for current thread | In Spotlight (not already in Reply Mode) |
-| `Cmd/Ctrl + P` | Stop execution of active thread | When active thread is executing |
+| `Cmd/Ctrl + P` | Stop execution of first (top) executing notification | Global (when Spotlight closed, notification executing) |
+| `Cmd/Ctrl + P` + `2-9` | Stop execution of 2nd-9th executing notification | Global (when Spotlight closed, multiple executing notifications) |
+| `Cmd/Ctrl + P` | Stop execution of active thread | In Spotlight (when active thread is executing) |
 
 ### 7.2 Context-Specific Shortcuts
 
@@ -966,7 +1055,48 @@ Notifications MUST be sorted by priority to ensure most urgent items appear firs
 | `Cmd/Ctrl + ,` | Toggle Settings modal | Spotlight open, not in Reply Mode |
 | `Cmd/Ctrl + T` | Toggle Share Current Tab | Spotlight open, not in Reply Mode |
 
-### 7.4 Focus Management
+### 7.4 Notification Shortcuts (Multiple Notifications)
+
+**Reply Shortcuts (Cmd/Ctrl + R)**
+
+**When Multiple Notifications Visible**
+- `Cmd/Ctrl + R` alone replies to the **top (first) notification** (highest priority)
+- `Cmd/Ctrl + R` followed by a number `2-9` replies to that notification in the stack
+  - Example: `Cmd + R` then `3` replies to the 3rd notification
+  - Notifications are numbered 1-9 from top to bottom (by priority order)
+  - If number exceeds notification count, command is ignored
+
+**Priority Order**
+- Notifications sorted by: Error > Action Required > Ongoing > Completed
+- Within same priority, sorted by most recent first
+- Number shortcuts follow this sorted order
+
+**Behavior**
+- Opens Spotlight with the selected thread in Reply Mode
+- Same effect as clicking that specific notification card
+- Works whether stack is collapsed or expanded
+
+**Stop Execution Shortcuts (Cmd/Ctrl + P)**
+
+**When Executing Notifications Visible**
+- `Cmd/Ctrl + P` followed by a number `1-9` stops the notification at that position
+  - Example: `Cmd + P` then `3` stops the 3rd notification (if it's executing)
+  - **Numbers align with Reply shortcuts** - same position as ⌘R, ⌘R2, ⌘R3, etc.
+  - If the notification at that position is NOT executing, command is ignored
+  - If no number pressed within 1 second, stops the first executing notification
+  
+**Example Scenario**
+- Notification 1 (completed) - No stop button, ⌘P1 does nothing
+- Notification 2 (executing) - Stop button shows "⌘P2"
+- Notification 3 (completed) - No stop button, ⌘P3 does nothing  
+- Notification 4 (executing) - Stop button shows "⌘P4"
+
+**Behavior**
+- Stops the specified thread execution (status changes to cancelled)
+- Same effect as clicking the Stop button on that notification
+- Thread freezes at current progress state
+
+### 7.5 Focus Management
 
 **Auto-Focus Behavior**
 - Input field automatically focused when Spotlight opens

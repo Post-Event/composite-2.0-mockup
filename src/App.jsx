@@ -260,6 +260,8 @@ export default function BrowserCopilot() {
   const [threadViewTimestamps, setThreadViewTimestamps] = useState({}); // Track when each thread was last viewed in chat history
   const [dismissedOngoingTasks, setDismissedOngoingTasks] = useState(new Set()); // Track which ongoing tasks have been dismissed
   const [dismissedAttentionNeeded, setDismissedAttentionNeeded] = useState(new Set()); // Track which attention needed threads have been dismissed
+  const [waitingForNotificationNumber, setWaitingForNotificationNumber] = useState(false); // Track if waiting for number after Cmd+R
+  const [waitingForStopNumber, setWaitingForStopNumber] = useState(false); // Track if waiting for number after Cmd+P
   const spotlightRef = useRef(null);
   const spotlightModalRef = useRef(null);
   const [modalPosition, setModalPosition] = useState({ x: 0, y: 0 });
@@ -332,6 +334,41 @@ export default function BrowserCopilot() {
 
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // If waiting for notification number after Cmd+R
+      if (waitingForNotificationNumber && !e.metaKey) {
+        const numberKey = e.key;
+        if (numberKey >= '1' && numberKey <= '9') {
+          e.preventDefault();
+          const index = parseInt(numberKey) - 1;
+          const sortedNotifications = getSortedNotifications();
+          if (index < sortedNotifications.length) {
+            openSpotlightWithThread(sortedNotifications[index]);
+          }
+        }
+        setWaitingForNotificationNumber(false);
+        return;
+      }
+      
+      // If waiting for stop number after Cmd+P
+      if (waitingForStopNumber && !e.metaKey) {
+        const numberKey = e.key;
+        if (numberKey >= '1' && numberKey <= '9') {
+          e.preventDefault();
+          const index = parseInt(numberKey) - 1;
+          const sortedNotifications = getSortedNotifications();
+          // Use the overall notification index, but only stop if it's executing
+          if (index < sortedNotifications.length) {
+            const threadId = sortedNotifications[index];
+            const thread = threads.find(t => t.id === threadId);
+            if (thread && thread.status === 'executing') {
+              handleStopExecution(threadId);
+            }
+          }
+        }
+        setWaitingForStopNumber(false);
+        return;
+      }
+      
       // Cmd + Shift + Space: Toggle spotlight
       if (e.metaKey && e.shiftKey && e.key === ' ') {
         e.preventDefault();
@@ -340,23 +377,69 @@ export default function BrowserCopilot() {
         setIsReplyMode(false);
         setReplyThreadId(null);
       }
-      // Cmd + R: Enter reply mode (only from outside reply mode)
+      // Cmd + R: Enter reply mode or wait for number
       else if (e.metaKey && e.key === 'r') {
         e.preventDefault();
-        const firstVisibleThread = visibleNotifications[0];
-        if (!showSpotlight && firstVisibleThread) {
-          // If spotlight is closed and there's a notification visible, open spotlight with that thread
-          openSpotlightWithThread(firstVisibleThread);
+        if (!showSpotlight && visibleNotifications.length > 0) {
+          // If spotlight is closed and there are notifications visible
+          if (visibleNotifications.length === 1) {
+            // Single notification - reply immediately
+            openSpotlightWithThread(visibleNotifications[0]);
+          } else {
+            // Multiple notifications - wait for number key or reply to first after timeout
+            setWaitingForNotificationNumber(true);
+            // Auto-reply to first notification after 1 second if no number pressed
+            setTimeout(() => {
+              setWaitingForNotificationNumber(prev => {
+                if (prev) {
+                  const sortedNotifications = getSortedNotifications();
+                  if (sortedNotifications.length > 0) {
+                    openSpotlightWithThread(sortedNotifications[0]);
+                  }
+                  return false;
+                }
+                return prev;
+              });
+            }, 1000);
+          }
         } else if (showSpotlight && !isReplyMode && replyThreadId) {
           // If in spotlight but not reply mode, enter reply mode for the current thread
           setIsReplyMode(true);
           setInput('');
         }
       }
-      // Cmd + P: Stop execution (if active thread is executing)
+      // Cmd + P: Stop execution
       else if (e.metaKey && e.key === 'p') {
         e.preventDefault();
-        if (activeThreadId) {
+        if (!showSpotlight && visibleNotifications.length > 0) {
+          // If spotlight is closed and there are notifications visible
+          const sortedNotifications = getSortedNotifications();
+          const executingThreads = sortedNotifications.filter(threadId => {
+            const thread = threads.find(t => t.id === threadId);
+            return thread && thread.status === 'executing';
+          });
+          
+          if (executingThreads.length === 1) {
+            // Single executing thread - stop immediately
+            handleStopExecution(executingThreads[0]);
+          } else if (executingThreads.length > 1) {
+            // Multiple executing threads - wait for number key or stop first after timeout
+            setWaitingForStopNumber(true);
+            // Auto-stop first executing thread after 1 second if no number pressed
+            setTimeout(() => {
+              setWaitingForStopNumber(prev => {
+                if (prev) {
+                  if (executingThreads.length > 0) {
+                    handleStopExecution(executingThreads[0]);
+                  }
+                  return false;
+                }
+                return prev;
+              });
+            }, 1000);
+          }
+        } else if (showSpotlight && activeThreadId) {
+          // If in spotlight, stop the active thread
           handleStopExecution(activeThreadId);
         }
       }
@@ -392,7 +475,7 @@ export default function BrowserCopilot() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showSpotlight, isReplyMode, activeThreadId, replyThreadId, threads, visibleNotifications, handleStopExecution, showSuggestions, showThreadsModal, showSettingsModal, sharingEnabled]);
+  }, [showSpotlight, isReplyMode, activeThreadId, replyThreadId, threads, visibleNotifications, handleStopExecution, showSuggestions, showThreadsModal, showSettingsModal, sharingEnabled, waitingForNotificationNumber, waitingForStopNumber]);
 
   useEffect(() => {
     if (showSpotlight && spotlightRef.current) {
@@ -428,6 +511,18 @@ export default function BrowserCopilot() {
   useEffect(() => {
     if (input.trim() !== '' && showSuggestions) {
       setShowSuggestions(false);
+    }
+  }, [input]);
+
+  // Auto-resize textarea based on content
+  useEffect(() => {
+    const textarea = spotlightRef.current;
+    if (textarea) {
+      // Reset height to auto to get the correct scrollHeight
+      textarea.style.height = 'auto';
+      // Set height based on content, respecting the max-height
+      const newHeight = Math.min(textarea.scrollHeight, 120); // 120px = 6 lines
+      textarea.style.height = `${newHeight}px`;
     }
   }, [input]);
 
@@ -1573,36 +1668,42 @@ export default function BrowserCopilot() {
           {expandedNotificationGroup ? (
             /* Expanded Stack - Show all notifications */
             <div className="space-y-2">
-              {getSortedNotifications().map((threadId, index) => {
-                const thread = threads.find(t => t.id === threadId);
-                if (!thread) return null;
+              {(() => {
+                const sortedNotifications = getSortedNotifications();
                 
-                return (
-                  <div
-                    key={threadId}
-                    className="relative group glass-notification rounded-xl shadow-2xl border border-white/20 overflow-hidden cursor-pointer hover:shadow-3xl transition-shadow"
-                    onClick={() => openSpotlightWithThread(threadId)}
-                  >
-                    {/* Thread Header */}
-                    <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/10 bg-white/10">
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <CompositeLogoMark className="w-4 h-4 text-[#F06423] flex-shrink-0" />
-                        <span className="text-xs text-[#111111] truncate font-medium">{thread.command}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {/* Stop button for executing threads */}
-                        {thread.status === 'executing' && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleStopExecution(threadId);
-                            }}
-                            className="p-1 hover:bg-[#F8F7F4] rounded transition-colors flex-shrink-0"
-                            title="Stop execution (⌘P)"
-                          >
-                            <Square className="w-4 h-4 text-slate-600" />
-                          </button>
-                        )}
+                return sortedNotifications.map((threadId, index) => {
+                  const thread = threads.find(t => t.id === threadId);
+                  if (!thread) return null;
+                  
+                  // Tooltip uses overall notification index (aligns with Reply shortcuts)
+                  const stopTooltip = `Stop execution (⌘P${index > 0 ? index + 1 : ''})`;
+                  
+                  return (
+                    <div
+                      key={threadId}
+                      className="relative group glass-notification rounded-xl shadow-2xl border border-white/20 overflow-hidden cursor-pointer hover:shadow-3xl transition-shadow"
+                      onClick={() => openSpotlightWithThread(threadId)}
+                    >
+                      {/* Thread Header */}
+                      <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/10 bg-white/10">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <CompositeLogoMark className="w-4 h-4 text-[#F06423] flex-shrink-0" />
+                          <span className="text-xs text-[#111111] truncate font-medium">{thread.command}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {/* Stop button for executing threads */}
+                          {thread.status === 'executing' && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleStopExecution(threadId);
+                              }}
+                              className="p-1 hover:bg-[#F8F7F4] rounded transition-colors flex-shrink-0"
+                              title={stopTooltip}
+                            >
+                              <Square className="w-4 h-4 text-slate-600" />
+                            </button>
+                          )}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -1626,15 +1727,16 @@ export default function BrowserCopilot() {
                       </div>
                     </div>
 
-                    {/* macOS-style Reply button - bottom right corner on hover */}
+                    {/* macOS-style Reply button - bottom right corner on hover - Shows numbered shortcut in expanded view */}
                     <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                       <div className="px-2.5 py-1.5 bg-orange-100 backdrop-blur-sm rounded text-[11px] text-slate-700 font-medium shadow-md border border-orange-200">
-                        Reply ⌘R
+                        Reply ⌘R{index > 0 ? `${index + 1}` : ''}
                       </div>
                     </div>
                   </div>
-                );
-              })}
+                  );
+                });
+              })()}
               
               {/* Collapse and Dismiss All Controls - Only show when there are multiple notifications */}
               {visibleNotifications.length > 1 && (
@@ -1745,12 +1847,14 @@ export default function BrowserCopilot() {
                         </div>
                       </div>
 
-                      {/* macOS-style Reply button - bottom right corner on hover */}
-                      <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                        <div className="px-2.5 py-1.5 bg-orange-100 backdrop-blur-sm rounded text-[11px] text-slate-700 font-medium shadow-md border border-orange-200">
-                          Reply ⌘R
+                      {/* macOS-style Reply button - bottom right corner on hover - ONLY show for single notification */}
+                      {!hasStack && (
+                        <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                          <div className="px-2.5 py-1.5 bg-orange-100 backdrop-blur-sm rounded text-[11px] text-slate-700 font-medium shadow-md border border-orange-200">
+                            Reply ⌘R
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -2093,7 +2197,18 @@ export default function BrowserCopilot() {
                   {suggestions.map((suggestion, idx) => (
                     <button
                       key={idx}
-                      onClick={() => handleExecute(suggestion.text)}
+                      onClick={() => {
+                        setInput(suggestion.text);
+                        // Focus the input field and move cursor to end
+                        setTimeout(() => {
+                          if (spotlightRef.current) {
+                            spotlightRef.current.focus();
+                            // Move cursor to end of text
+                            const length = suggestion.text.length;
+                            spotlightRef.current.setSelectionRange(length, length);
+                          }
+                        }, 0);
+                      }}
                       className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg glass-suggestion transition-all text-left group"
                     >
                       <div className="flex-1 min-w-0">
@@ -2242,15 +2357,17 @@ export default function BrowserCopilot() {
 
             {/* Search input */}
             <div className="glass-input">
-              <div className="flex items-center gap-3 px-4 py-3">
-                <CompositeLogoMark className="w-4 h-4 text-[#F06423] flex-shrink-0" />
-                <input
+              <div className="flex items-start gap-3 px-4 py-3">
+                <CompositeLogoMark className="w-4 h-4 text-[#F06423] flex-shrink-0 mt-0.5" />
+                <textarea
                   ref={spotlightRef}
-                  type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleExecute(input);
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleExecute(input);
+                    }
                     if (e.key === 'Escape') {
                       if (isReplyMode && replyThreadId) {
                         // Exit reply mode and go back to thread list
@@ -2266,7 +2383,13 @@ export default function BrowserCopilot() {
                     }
                   }}
                   placeholder={isReplyMode ? "Reply to Composite" : "Describe your browser task. Watch it get done."}
-                  className="flex-1 outline-none text-sm text-[#111111] placeholder-slate-500 bg-transparent"
+                  className="flex-1 outline-none text-sm text-[#111111] placeholder-slate-500 bg-transparent resize-none overflow-y-auto"
+                  style={{
+                    minHeight: '20px',
+                    maxHeight: '120px',
+                    lineHeight: '20px'
+                  }}
+                  rows={1}
                 />
                 <div className="flex items-center gap-1">
                   {/* Stop button - only show when in reply mode AND thread is executing */}
