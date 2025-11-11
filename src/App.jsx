@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 
 const Loader = ({ className }) => (
   <svg className={`${className} animate-spin`} fill="none" viewBox="0 0 24 24">
@@ -68,14 +68,6 @@ const Sun = ({ className }) => (
     <line x1="21" y1="12" x2="23" y2="12" />
     <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
     <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-  </svg>
-);
-
-const Lightbulb = ({ className }) => (
-  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-    <line x1="9" y1="18" x2="15" y2="18" />
-    <line x1="10" y1="22" x2="14" y2="22" />
-    <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14" />
   </svg>
 );
 
@@ -248,10 +240,8 @@ export default function BrowserCopilot() {
   const [activeThreadId, setActiveThreadId] = useState(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showThreadsModal, setShowThreadsModal] = useState(false);
-  const [showSuggestions, setShowSuggestions] = useState(true);
   const [chromeConnected, setChromeConnected] = useState(true); // true = green, false = orange
-  const [sharingEnabled, setSharingEnabled] = useState(true); // true = enabled, false = disabled
-  const [currentTab, setCurrentTab] = useState({ title: 'hi - Google Search', favicon: 'https://www.google.com/favicon.ico' }); // Current browser tab info
+  const [currentTab, setCurrentTab] = useState({ id: 'current', title: 'hi - Google Search', favicon: 'https://www.google.com/favicon.ico', url: 'https://www.google.com' }); // Current browser tab info
   const [isReplyMode, setIsReplyMode] = useState(false); // true when replying to active thread
   const [replyThreadId, setReplyThreadId] = useState(null); // ID of thread being replied to
   const [visibleNotifications, setVisibleNotifications] = useState([]); // IDs of threads with visible notifications
@@ -267,6 +257,60 @@ export default function BrowserCopilot() {
   const [modalPosition, setModalPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  
+  // Tab mention state
+  const [showMentionDropdown, setShowMentionDropdown] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [mentionCursorPosition, setMentionCursorPosition] = useState(null);
+  const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
+  const [mentionDropdownPosition, setMentionDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
+  const [isKeyboardNavigating, setIsKeyboardNavigating] = useState(false);
+  const mentionDropdownRef = useRef(null);
+  const fileInputRef = useRef(null);
+  
+  // File upload state
+  const [uploadedFiles, setUploadedFiles] = useState(new Map());
+  
+  // Mock tab groups and tabs data
+  const [tabGroups] = useState([
+    {
+      id: 'work',
+      name: 'Work',
+      color: '#3B82F6', // blue
+      tabs: [
+        { id: 2, title: 'GitHub - Notifications', favicon: 'https://github.githubassets.com/favicons/favicon.svg', url: 'https://github.com/notifications' },
+        { id: 4, title: 'Notion - My Notes', favicon: 'https://www.notion.so/images/favicon.ico', url: 'https://notion.so' },
+        { id: 5, title: 'Figma - Design Project', favicon: 'https://static.figma.com/app/icon/1/favicon.ico', url: 'https://figma.com' },
+      ]
+    },
+    {
+      id: 'atlassian',
+      name: 'Atlassian Tools',
+      color: '#0052CC', // atlassian blue
+      tabs: [
+        { id: 6, title: 'Jira - Sprint Planning', favicon: 'https://wac-cdn.atlassian.com/assets/img/favicons/atlassian/favicon-32x32.png', url: 'https://atlassian.net' },
+        { id: 7, title: 'Confluence - Documentation', favicon: 'https://wac-cdn.atlassian.com/assets/img/favicons/atlassian/favicon-32x32.png', url: 'https://confluence.atlassian.com' },
+      ]
+    }
+  ]);
+  
+  // Tabs not in any group
+  const [ungroupedTabs] = useState([
+    { id: 1, title: 'Gmail - Inbox', favicon: 'https://ssl.gstatic.com/ui/v1/icons/mail/rfr/gmail.ico', url: 'https://mail.google.com' },
+    { id: 3, title: 'Slack - #general', favicon: 'https://a.slack-edge.com/80588/marketing/img/meta/favicon-32.png', url: 'https://slack.com' },
+  ]);
+  
+  // Flatten all tabs for backwards compatibility
+  const [availableTabs] = useMemo(() => {
+    const allTabs = [...ungroupedTabs];
+    tabGroups.forEach(group => {
+      allTabs.push(...group.tabs);
+    });
+    return [allTabs];
+  }, [tabGroups, ungroupedTabs]);
+  
+  // Track which tab groups are expanded
+  const [expandedGroups, setExpandedGroups] = useState(new Set());
 
   // Drag handlers for modal
   const handleMouseDown = useCallback((e) => {
@@ -303,6 +347,491 @@ export default function BrowserCopilot() {
       };
     }
   }, [isDragging, handleMouseMove, handleMouseUp]);
+
+  // Filter tabs based on mention query, with current tab always first
+  const filteredTabs = useMemo(() => {
+    const query = mentionQuery.toLowerCase();
+    let tabs = mentionQuery 
+      ? availableTabs.filter(tab => 
+          tab.title.toLowerCase().includes(query) || 
+          tab.url.toLowerCase().includes(query)
+        )
+      : availableTabs;
+    
+    // Check if current tab matches the filter (or if no filter)
+    const currentTabMatches = !mentionQuery || 
+      currentTab.title.toLowerCase().includes(query) || 
+      currentTab.url.toLowerCase().includes(query);
+    
+    // Always put current tab first if it matches
+    if (currentTabMatches) {
+      return [currentTab, ...tabs.filter(tab => tab.id !== currentTab.id)];
+    }
+    
+    return tabs;
+  }, [mentionQuery, availableTabs, currentTab]);
+
+  // Create combined menu items including file upload option and tab groups
+  const mentionMenuItems = useMemo(() => {
+    const items = [];
+    const query = mentionQuery.toLowerCase();
+    const hasQuery = query.length > 0;
+    
+    // Check if current tab matches the filter
+    const currentTabMatches = !hasQuery || 
+      currentTab.title.toLowerCase().includes(query) || 
+      currentTab.url.toLowerCase().includes(query);
+    
+    // Add current tab first if it matches
+    if (currentTabMatches) {
+      items.push({ type: 'tab', data: currentTab, isCurrentTab: true });
+      
+      // Add file upload option after current tab
+      items.push({ type: 'file-upload' });
+    }
+    
+    // When searching (has query), expand all groups and show matching tabs
+    if (hasQuery) {
+      // Add ungrouped tabs that match
+      ungroupedTabs.forEach(tab => {
+        if (tab.id !== currentTab.id && 
+            (tab.title.toLowerCase().includes(query) || 
+             tab.url.toLowerCase().includes(query))) {
+          items.push({ type: 'tab', data: tab });
+        }
+      });
+      
+      // Add grouped tabs that match (expanded, no group headers)
+      tabGroups.forEach(group => {
+        group.tabs.forEach(tab => {
+          if (tab.id !== currentTab.id && 
+              (tab.title.toLowerCase().includes(query) || 
+               tab.url.toLowerCase().includes(query))) {
+            items.push({ type: 'tab', data: tab, groupColor: group.color });
+          }
+        });
+      });
+    } else {
+      // No query - show with collapsed groups
+      // Add ungrouped tabs (except current tab which is already added)
+      ungroupedTabs.forEach(tab => {
+        if (tab.id !== currentTab.id) {
+          items.push({ type: 'tab', data: tab });
+        }
+      });
+      
+      // Add tab groups
+      tabGroups.forEach(group => {
+        const isExpanded = expandedGroups.has(group.id);
+        items.push({ 
+          type: 'group-header', 
+          data: group,
+          isExpanded 
+        });
+        
+        if (isExpanded) {
+          group.tabs.forEach(tab => {
+            if (tab.id !== currentTab.id) {
+              items.push({ 
+                type: 'tab', 
+                data: tab, 
+                groupColor: group.color,
+                isGrouped: true 
+              });
+            }
+          });
+        }
+      });
+    }
+    
+    return items;
+  }, [mentionQuery, currentTab, ungroupedTabs, tabGroups, expandedGroups]);
+
+  // Store mentioned tabs data for rendering pills
+  const [mentionedTabs, setMentionedTabs] = useState(new Map());
+  const isUpdatingFromInput = useRef(false);
+  const hasInitializedInput = useRef(false);
+
+  // Insert a tab mention at cursor position
+  const insertMention = useCallback((tab) => {
+    if (!spotlightRef.current) return;
+    
+    const before = input.substring(0, mentionCursorPosition - mentionQuery.length - 1); // -1 for the @ symbol
+    const after = input.substring(mentionCursorPosition);
+    const mention = `@[${tab.title}]`;
+    const newInput = before + mention + after;
+    
+    setInput(newInput);
+    
+    // Store the tab data for rendering the pill  
+    setMentionedTabs(prev => {
+      const newMap = new Map(prev);
+      newMap.set(tab.title, { id: tab.id, title: tab.title, favicon: tab.favicon, url: tab.url });
+      return newMap;
+    });
+    
+    setShowMentionDropdown(false);
+    setMentionQuery('');
+    setMentionCursorPosition(null);
+    setSelectedMentionIndex(0);
+    
+    // Force update the contentEditable and set cursor after the mention
+    setTimeout(() => {
+      if (spotlightRef.current) {
+        spotlightRef.current.focus();
+        // Move cursor to end of the inserted mention
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(spotlightRef.current);
+        range.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+    }, 0);
+  }, [input, mentionCursorPosition, mentionQuery]);
+
+  // Handle file upload
+  const handleFileUpload = useCallback((event) => {
+    const files = Array.from(event.target.files);
+    if (files.length === 0) return;
+    
+    files.forEach(file => {
+      const fileId = `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const fileName = file.name;
+      
+      // Store file data
+      setUploadedFiles(prev => {
+        const newMap = new Map(prev);
+        newMap.set(fileName, { 
+          id: fileId,
+          name: fileName, 
+          size: file.size,
+          type: file.type,
+          file: file
+        });
+        return newMap;
+      });
+      
+      // Insert file mention in input
+      if (spotlightRef.current && mentionCursorPosition !== null) {
+        const before = input.substring(0, mentionCursorPosition - mentionQuery.length - 1);
+        const after = input.substring(mentionCursorPosition);
+        const mention = `@[${fileName}]`;
+        const newInput = before + mention + after;
+        setInput(newInput);
+      }
+    });
+    
+    setShowMentionDropdown(false);
+    setMentionQuery('');
+    setMentionCursorPosition(null);
+    setSelectedMentionIndex(0);
+    
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    
+    // Focus back on input
+    setTimeout(() => {
+      if (spotlightRef.current) {
+        spotlightRef.current.focus();
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(spotlightRef.current);
+        range.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+    }, 0);
+  }, [input, mentionCursorPosition, mentionQuery]);
+
+  // Open file selector
+  const openFileSelector = useCallback(() => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  }, []);
+
+  // Toggle tab group expansion
+  const toggleGroupExpansion = useCallback((groupId) => {
+    setExpandedGroups(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(groupId)) {
+        newSet.delete(groupId);
+      } else {
+        newSet.add(groupId);
+      }
+      return newSet;
+    });
+  }, []);
+
+  // Detect @ mentions in input
+  const detectMention = useCallback((text, cursorPos) => {
+    // Find the last @ before cursor position
+    let atIndex = -1;
+    for (let i = cursorPos - 1; i >= 0; i--) {
+      if (text[i] === '@') {
+        // Check if @ is at start or preceded by whitespace
+        if (i === 0 || /\s/.test(text[i - 1])) {
+          atIndex = i;
+          break;
+        }
+      }
+      // Stop if we hit a space (means we're not in a mention)
+      if (/\s/.test(text[i])) {
+        break;
+      }
+    }
+    
+    if (atIndex !== -1) {
+      const query = text.substring(atIndex + 1, cursorPos);
+      // Only show dropdown if there are no spaces in the query
+      if (!/\s/.test(query)) {
+        setMentionQuery(query);
+        setMentionCursorPosition(cursorPos);
+        setShowMentionDropdown(true);
+        setSelectedMentionIndex(0);
+        setIsKeyboardNavigating(false);
+        
+        // Calculate dropdown position based on textarea position
+        if (spotlightRef.current) {
+          const rect = spotlightRef.current.getBoundingClientRect();
+          setMentionDropdownPosition({
+            top: rect.top,
+            left: rect.left,
+            width: rect.width
+          });
+        }
+        return;
+      }
+    }
+    
+    setShowMentionDropdown(false);
+    setMentionQuery('');
+    setMentionCursorPosition(null);
+    setIsKeyboardNavigating(false);
+  }, []);
+
+  // Handle input change with mention detection
+  const handleInputChange = useCallback((e) => {
+    const newValue = e.target.value;
+    const cursorPos = e.target.selectionStart;
+    setInput(newValue);
+    detectMention(newValue, cursorPos);
+  }, [detectMention]);
+
+  // Update mention dropdown position when modal moves or window resizes
+  useEffect(() => {
+    if (showMentionDropdown && spotlightRef.current) {
+      const updatePosition = () => {
+        const rect = spotlightRef.current.getBoundingClientRect();
+        setMentionDropdownPosition({
+          top: rect.top,
+          left: rect.left,
+          width: rect.width
+        });
+      };
+      
+      updatePosition();
+      window.addEventListener('resize', updatePosition);
+      return () => window.removeEventListener('resize', updatePosition);
+    }
+  }, [showMentionDropdown, modalPosition]);
+
+  // Scroll selected mention into view (only when using keyboard)
+  useEffect(() => {
+    if (showMentionDropdown && isKeyboardNavigating && mentionDropdownRef.current) {
+      const selectedElement = mentionDropdownRef.current.querySelector(`button:nth-child(${selectedMentionIndex + 2})`); // +2 because of header div
+      if (selectedElement) {
+        selectedElement.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    }
+  }, [selectedMentionIndex, showMentionDropdown, isKeyboardNavigating]);
+
+  // Close mention dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (showMentionDropdown && 
+          mentionDropdownRef.current && 
+          !mentionDropdownRef.current.contains(e.target) &&
+          spotlightRef.current &&
+          !spotlightRef.current.contains(e.target)) {
+        setShowMentionDropdown(false);
+        setMentionQuery('');
+        setMentionCursorPosition(null);
+      }
+    };
+    
+    if (showMentionDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showMentionDropdown]);
+
+  // Handle remove mention button clicks
+  useEffect(() => {
+    if (!spotlightRef.current) return;
+    
+    const handleClick = (e) => {
+      // Check if clicked element or its parent is the remove button
+      const button = e.target.closest('[data-remove-mention]');
+      if (button) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const tabTitle = button.getAttribute('data-remove-mention');
+        const mentionToRemove = `@[${tabTitle}]`;
+        
+        // Get current text from contentEditable
+        const extractText = (node) => {
+          let text = '';
+          node.childNodes.forEach(child => {
+            if (child.nodeType === Node.TEXT_NODE) {
+              text += child.textContent;
+            } else if (child.nodeType === Node.ELEMENT_NODE) {
+              if (child.hasAttribute('data-mention')) {
+                text += `@[${child.getAttribute('data-mention')}]`;
+              } else {
+                text += extractText(child);
+              }
+            }
+          });
+          return text;
+        };
+        
+        const currentText = extractText(spotlightRef.current);
+        const newInput = currentText.replace(mentionToRemove, '');
+        setInput(newInput);
+        
+        // Remove from mentioned tabs map
+        setMentionedTabs(prev => {
+          const newMap = new Map(prev);
+          newMap.delete(tabTitle);
+          return newMap;
+        });
+        
+        // Remove from uploaded files map
+        setUploadedFiles(prev => {
+          const newMap = new Map(prev);
+          newMap.delete(tabTitle);
+          return newMap;
+        });
+        
+        // Focus back on contentEditable
+        setTimeout(() => {
+          if (spotlightRef.current) {
+            spotlightRef.current.focus();
+          }
+        }, 0);
+      }
+    };
+    
+    const contentEditable = spotlightRef.current;
+    contentEditable.addEventListener('click', handleClick, true); // Use capture phase
+    return () => contentEditable.removeEventListener('click', handleClick, true);
+  }, []);
+
+  // Update contentEditable only when inserting mentions programmatically
+  useEffect(() => {
+    if (!spotlightRef.current || isUpdatingFromInput.current) return;
+    
+    const contentEditable = spotlightRef.current;
+    const currentContent = contentEditable.innerHTML;
+    
+    // Generate new HTML from input state
+    const parts = [];
+    let remaining = input;
+    
+    while (remaining.length > 0) {
+      const mentionMatch = remaining.match(/^@\[([^\]]+)\]/);
+      if (mentionMatch) {
+        const fullMention = mentionMatch[0];
+        const itemTitle = mentionMatch[1];
+        const tabData = mentionedTabs.get(itemTitle);
+        const fileData = uploadedFiles.get(itemTitle);
+        
+        if (tabData) {
+          // Show "@Current Tab" for the current tab, otherwise show the actual tab title
+          const isCurrentTab = tabData.id === currentTab.id;
+          const displayText = isCurrentTab ? 'Current Tab' : (tabData.title.length > 20 ? tabData.title.substring(0, 20) + '...' : tabData.title);
+          parts.push(`<span contenteditable="false" data-mention="${itemTitle}" class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-orange-50 border border-[#F06423]/30 rounded text-xs font-medium text-[#F06423] whitespace-nowrap align-middle mx-0.5"><img src="${tabData.favicon}" class="w-3 h-3 flex-shrink-0" onerror="this.style.display='none'"/><span>@${displayText}</span><button type="button" class="ml-0.5 hover:bg-[#F06423]/20 rounded-full p-0.5 transition-colors flex items-center justify-center" data-remove-mention="${itemTitle}"><svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></span>`);
+          remaining = remaining.substring(fullMention.length);
+          continue;
+        } else if (fileData) {
+          const displayText = fileData.name.length > 20 ? fileData.name.substring(0, 20) + '...' : fileData.name;
+          const fileSizeKB = (fileData.size / 1024).toFixed(1);
+          parts.push(`<span contenteditable="false" data-mention="${itemTitle}" class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 border border-blue-300 rounded text-xs font-medium text-blue-700 whitespace-nowrap align-middle mx-0.5"><svg class="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg><span>@${displayText}</span><span class="text-[10px] text-blue-500 ml-0.5">(${fileSizeKB}KB)</span><button type="button" class="ml-0.5 hover:bg-blue-200 rounded-full p-0.5 transition-colors flex items-center justify-center" data-remove-mention="${itemTitle}"><svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></span>`);
+          remaining = remaining.substring(fullMention.length);
+          continue;
+        }
+      }
+      
+      // Escape HTML and add the character
+      const char = remaining[0];
+      parts.push(char === '<' ? '&lt;' : char === '>' ? '&gt;' : char === '&' ? '&amp;' : char);
+      remaining = remaining.substring(1);
+    }
+    
+    const newHTML = parts.join('');
+    
+    // Only update if content changed and we're not currently editing
+    if (newHTML !== currentContent) {
+      const selection = window.getSelection();
+      const range = selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+      
+      contentEditable.innerHTML = newHTML || '';
+      
+      // Restore cursor position
+      if (range) {
+        try {
+          selection.removeAllRanges();
+          selection.addRange(range);
+        } catch (e) {
+          // If range is invalid, just place cursor at end
+          const newRange = document.createRange();
+          newRange.selectNodeContents(contentEditable);
+          newRange.collapse(false);
+          selection.removeAllRanges();
+          selection.addRange(newRange);
+        }
+      }
+    }
+  }, [input, mentionedTabs, uploadedFiles]);
+
+  // Initialize input with current tab mention when spotlight opens
+  useEffect(() => {
+    if (showSpotlight && !isReplyMode && !hasInitializedInput.current && currentTab) {
+      hasInitializedInput.current = true;
+      const mention = `@[${currentTab.title}]`;
+      setInput(mention + ' ');
+      
+      // Store the current tab data for rendering the pill
+      setMentionedTabs(prev => {
+        const newMap = new Map(prev);
+        newMap.set(currentTab.title, { 
+          id: currentTab.id,
+          title: currentTab.title, 
+          favicon: currentTab.favicon, 
+          url: currentTab.url 
+        });
+        return newMap;
+      });
+      
+      // Focus and position cursor at the end
+      setTimeout(() => {
+        if (spotlightRef.current) {
+          spotlightRef.current.focus();
+          const selection = window.getSelection();
+          const range = document.createRange();
+          range.selectNodeContents(spotlightRef.current);
+          range.collapse(false);
+          selection.removeAllRanges();
+          selection.addRange(range);
+        }
+      }, 100);
+    }
+  }, [showSpotlight, isReplyMode, currentTab]);
 
   // Stop execution for a specific thread - freezes current progress by saving snapshot
   const handleStopExecution = useCallback((threadId) => {
@@ -376,6 +905,7 @@ export default function BrowserCopilot() {
         setInput('');
         setIsReplyMode(false);
         setReplyThreadId(null);
+        hasInitializedInput.current = false; // Reset to allow re-initialization on next open
       }
       // Cmd + R: Enter reply mode or wait for number
       else if (e.metaKey && e.key === 'r') {
@@ -445,37 +975,23 @@ export default function BrowserCopilot() {
       }
       // Spotlight-specific shortcuts (only when spotlight is open and not in reply mode)
       else if (showSpotlight && !isReplyMode) {
-        // Cmd + S: Toggle Suggestions
-        if (e.metaKey && e.key === 's') {
-          e.preventDefault();
-          setShowSuggestions(!showSuggestions);
-          setShowThreadsModal(false);
-          setShowSettingsModal(false);
-        }
         // Cmd + B: Toggle Chat History
-        else if (e.metaKey && e.key === 'b') {
+        if (e.metaKey && e.key === 'b') {
           e.preventDefault();
           setShowThreadsModal(!showThreadsModal);
-          setShowSuggestions(false);
           setShowSettingsModal(false);
         }
         // Cmd + ,: Toggle Settings
         else if (e.metaKey && e.key === ',') {
           e.preventDefault();
           setShowSettingsModal(!showSettingsModal);
-          setShowSuggestions(false);
           setShowThreadsModal(false);
-        }
-        // Cmd + T: Toggle Share Current Tab
-        else if (e.metaKey && e.key === 't') {
-          e.preventDefault();
-          setSharingEnabled(!sharingEnabled);
         }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showSpotlight, isReplyMode, activeThreadId, replyThreadId, threads, visibleNotifications, handleStopExecution, showSuggestions, showThreadsModal, showSettingsModal, sharingEnabled, waitingForNotificationNumber, waitingForStopNumber]);
+  }, [showSpotlight, isReplyMode, activeThreadId, replyThreadId, threads, visibleNotifications, handleStopExecution, showThreadsModal, showSettingsModal, waitingForNotificationNumber, waitingForStopNumber]);
 
   useEffect(() => {
     if (showSpotlight && spotlightRef.current) {
@@ -507,13 +1023,6 @@ export default function BrowserCopilot() {
     }
   }, [replyThreadId, showThreadsModal]);
 
-  // Automatically untoggle suggestions when user starts typing
-  useEffect(() => {
-    if (input.trim() !== '' && showSuggestions) {
-      setShowSuggestions(false);
-    }
-  }, [input]);
-
   // Auto-resize textarea based on content
   useEffect(() => {
     const textarea = spotlightRef.current;
@@ -526,12 +1035,23 @@ export default function BrowserCopilot() {
     }
   }, [input]);
 
-  const suggestions = [
-    { text: 'Send reminder emails for today\'s reference check calls' },
-    { text: 'Create interview summary doc for today\'s candidates' },
-    { text: 'Add missing Zoom links to upcoming calendar events' },
-    { text: 'Export this week\'s calendar to CSV for reporting' },
-  ];
+  // Top suggestion text for placeholder - dynamically computed based on input
+  const getSuggestionText = () => {
+    const currentTabMention = `@[${currentTab.title}]`;
+    const hasCurrentTab = input.includes(currentTabMention);
+    
+    if (!hasCurrentTab && input.trim() === '') {
+      return '@Current Tab';
+    }
+    
+    if (hasCurrentTab || input.trim() === currentTabMention.trim()) {
+      return 'Send reminder emails for today\'s reference check calls';
+    }
+    
+    return '@Current Tab';
+  };
+  
+  const suggestionText = getSuggestionText();
 
   // Helper function to open spotlight with a specific thread
   const openSpotlightWithThread = (threadId) => {
@@ -540,7 +1060,6 @@ export default function BrowserCopilot() {
     setReplyThreadId(threadId);
     setActiveThreadId(threadId);
     setShowSettingsModal(false);
-    setShowSuggestions(false);
     // Track that this thread has been viewed (like macOS Messages)
     setThreadViewTimestamps(prev => ({
       ...prev,
@@ -1877,7 +2396,7 @@ export default function BrowserCopilot() {
             }}
           >
             {/* Content Area - only show if there's content to display */}
-            {(isReplyMode || showThreadsModal || showSettingsModal || showSuggestions) && (
+            {(isReplyMode || showThreadsModal || showSettingsModal) && (
               <div className="max-h-96 glass-content border-b border-white/10 flex flex-col">
               {isReplyMode && replyThreadId ? (
                 /* Reply Mode - Show thread details */
@@ -2181,9 +2700,12 @@ export default function BrowserCopilot() {
                           <span className="text-[10px] text-slate-600">{chromeConnected ? 'Connected' : 'Disconnected'}</span>
                         </div>
                         <span className="text-[10px] text-slate-400">•</span>
-                        <span className="text-[10px] text-slate-600">Chrome (Default)</span>
-                        <span className="text-[10px] text-slate-400">•</span>
-                        <button className="text-[10px] text-[#F06423] hover:text-[#F06423]/80 font-medium">Rescan</button>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-slate-600">Chrome (Default)</span>
+                          <button className="text-slate-500 hover:text-[#F06423] transition-colors p-0.5">
+                            <RefreshCw className="w-3 h-3" />
+                          </button>
+                        </div>
                         <span className="text-[10px] text-slate-400">•</span>
                         <button className="text-[10px] text-[#F06423] hover:text-[#F06423]/80 font-medium">Install Extension</button>
                         <span className="text-[10px] text-slate-400">•</span>
@@ -2192,32 +2714,6 @@ export default function BrowserCopilot() {
                     </div>
                   </div>
                 </div>
-              ) : showSuggestions ? (
-                <div className="p-4 space-y-2">
-                  {suggestions.map((suggestion, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => {
-                        setInput(suggestion.text);
-                        // Focus the input field and move cursor to end
-                        setTimeout(() => {
-                          if (spotlightRef.current) {
-                            spotlightRef.current.focus();
-                            // Move cursor to end of text
-                            const length = suggestion.text.length;
-                            spotlightRef.current.setSelectionRange(length, length);
-                          }
-                        }, 0);
-                      }}
-                      className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg glass-suggestion transition-all text-left group"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs text-[#111111] leading-snug font-medium">{suggestion.text}</p>
-                      </div>
-                      <span className="text-[10px] text-slate-500 flex-shrink-0">⌘{idx + 1}</span>
-                    </button>
-                  ))}
-                </div>
               ) : null}
               </div>
             )}
@@ -2225,42 +2721,16 @@ export default function BrowserCopilot() {
             {/* Tab Navigation - Chrome Style (hidden in reply mode) */}
             {!isReplyMode && (
               <div className="relative glass-nav px-4 pb-2">
-                {(showSuggestions || showThreadsModal || showSettingsModal) && (
+                {(showThreadsModal || showSettingsModal) && (
                   <div className="absolute top-[4px] left-0 right-0 h-[2px] bg-[#F06423] z-0" />
                 )}
                 <div className="flex gap-1 pt-1.5 relative z-10">
-                {/* Suggestions Tab */}
-                <button
-                  onClick={() => {
-                    // Toggle suggestions on/off
-                    setShowSuggestions(!showSuggestions);
-                    setShowSettingsModal(false);
-                    setShowThreadsModal(false);
-                  }}
-                  className={`relative flex items-center justify-center ${
-                    showSuggestions ? 'w-auto px-4 gap-2' : 'w-10'
-                  } py-2 text-xs font-medium transition-all rounded-b-lg ${
-                    showSuggestions
-                      ? 'bg-white text-[#F06423] shadow-sm border-l-2 border-r-2 border-b-2 border-[#F06423]'
-                      : 'bg-transparent text-slate-600 hover:text-[#111111] hover:bg-white/40'
-                  }`}
-                  style={{
-                    marginTop: showSuggestions ? '-2px' : '0px',
-                    paddingTop: showSuggestions ? 'calc(0.5rem + 2px)' : '0.5rem',
-                  }}
-                  title="Suggestions (⌘S)"
-                >
-                  <Lightbulb className="w-4 h-4 flex-shrink-0" />
-                  {showSuggestions && <span>Suggestions</span>}
-                </button>
-
                 {/* Chat History Tab */}
                 <button
                   onClick={() => {
                     // Toggle Chat History on/off
                     setShowThreadsModal(!showThreadsModal);
                     setShowSettingsModal(false);
-                    setShowSuggestions(false);
                   }}
                   className={`relative flex items-center justify-center ${
                     showThreadsModal ? 'w-auto px-4 gap-2' : 'w-10'
@@ -2290,7 +2760,6 @@ export default function BrowserCopilot() {
                     // Toggle Settings on/off
                     setShowSettingsModal(!showSettingsModal);
                     setShowThreadsModal(false);
-                    setShowSuggestions(false);
                   }}
                   className={`relative flex items-center justify-center ${
                     showSettingsModal ? 'w-auto px-4 gap-2' : 'w-10'
@@ -2312,65 +2781,141 @@ export default function BrowserCopilot() {
 
                 {/* Spacer */}
                 <div className="flex-1" />
-
-                {/* Action Buttons */}
-                <button 
-                  onClick={() => setSharingEnabled(!sharingEnabled)}
-                  className={`relative group flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors text-xs font-medium self-center ${
-                    sharingEnabled 
-                      ? 'bg-[#F06423] hover:bg-[#F06423]/90 text-white' 
-                      : 'bg-orange-100 hover:bg-orange-200 text-slate-600'
-                  }`}
-                  title={sharingEnabled ? `${currentTab.title} (⌘T)` : 'Share current tab (⌘T)'}
-                >
-                  {sharingEnabled ? (
-                    <>
-                      <img 
-                        src={currentTab.favicon} 
-                        alt="" 
-                        className="w-4 h-4 flex-shrink-0"
-                        onError={(e) => {
-                          // Fallback to a generic icon if favicon fails to load
-                          e.target.style.display = 'none';
-                          e.target.nextSibling.style.display = 'inline';
-                        }}
-                      />
-                      <span className="hidden">🌐</span>
-                    </>
-                  ) : (
-                    <span className="text-base leading-none">🌐</span>
-                  )}
-                  
-                  {/* Button label changes based on state */}
-                  {sharingEnabled ? (
-                    <>
-                      <span className="group-hover:hidden">Sharing</span>
-                      <span className="hidden group-hover:inline">{currentTab.title}</span>
-                    </>
-                  ) : (
-                    <span>Share current tab</span>
-                  )}
-                </button>
               </div>
             </div>
             )}
 
             {/* Search input */}
-            <div className="glass-input">
+            <div className="glass-input relative">
               <div className="flex items-start gap-3 px-4 py-3">
                 <CompositeLogoMark className="w-4 h-4 text-[#F06423] flex-shrink-0 mt-0.5" />
-                <textarea
-                  ref={spotlightRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
+                <div className="flex-1 relative">
+                  <div
+                    ref={spotlightRef}
+                    contentEditable
+                    suppressContentEditableWarning
+                    onInput={(e) => {
+                    isUpdatingFromInput.current = true;
+                    
+                    // Extract plain text from contentEditable, preserving mentions
+                    const extractText = (node) => {
+                      let text = '';
+                      node.childNodes.forEach(child => {
+                        if (child.nodeType === Node.TEXT_NODE) {
+                          text += child.textContent;
+                        } else if (child.nodeType === Node.ELEMENT_NODE) {
+                          if (child.hasAttribute('data-mention')) {
+                            text += `@[${child.getAttribute('data-mention')}]`;
+                          } else {
+                            text += extractText(child);
+                          }
+                        }
+                      });
+                      return text;
+                    };
+                    
+                    const text = extractText(e.currentTarget);
+                    setInput(text);
+                    
+                    // Clear contentEditable completely if text is empty to show placeholder
+                    if (text === '') {
+                      e.currentTarget.innerHTML = '';
+                    }
+                    
+                    // Get cursor position
+                    const selection = window.getSelection();
+                    let cursorPos = 0;
+                    if (selection && selection.rangeCount > 0) {
+                      const range = selection.getRangeAt(0);
+                      const preCaretRange = range.cloneRange();
+                      preCaretRange.selectNodeContents(e.currentTarget);
+                      preCaretRange.setEnd(range.endContainer, range.endOffset);
+                      cursorPos = extractText(preCaretRange.cloneContents()).length;
+                    }
+                    detectMention(text, cursorPos);
+                    
+                    setTimeout(() => {
+                      isUpdatingFromInput.current = false;
+                    }, 0);
+                  }}
                   onKeyDown={(e) => {
+                    // Handle mention dropdown navigation
+                    if (showMentionDropdown && mentionMenuItems.length > 0) {
+                      if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        setIsKeyboardNavigating(true);
+                        setSelectedMentionIndex(prev => 
+                          prev < mentionMenuItems.length - 1 ? prev + 1 : prev
+                        );
+                        return;
+                      }
+                      if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        setIsKeyboardNavigating(true);
+                        setSelectedMentionIndex(prev => prev > 0 ? prev - 1 : prev);
+                        return;
+                      }
+                      if (e.key === 'Enter' || e.key === 'Tab') {
+                        e.preventDefault();
+                        const selectedItem = mentionMenuItems[selectedMentionIndex];
+                        if (selectedItem.type === 'tab') {
+                          insertMention(selectedItem.data);
+                        } else if (selectedItem.type === 'file-upload') {
+                          openFileSelector();
+                        } else if (selectedItem.type === 'group-header') {
+                          toggleGroupExpansion(selectedItem.data.id);
+                        }
+                        return;
+                      }
+                      if (e.key === 'Escape') {
+                        e.preventDefault();
+                        setShowMentionDropdown(false);
+                        setMentionQuery('');
+                        setMentionCursorPosition(null);
+                        setIsKeyboardNavigating(false);
+                        return;
+                      }
+                    }
+                    
+                    // Handle Tab to autocomplete suggestion when not in mention dropdown
+                    if (e.key === 'Tab' && !showMentionDropdown) {
+                      // Check if input only contains mention(s) and whitespace
+                      const textWithoutMentions = input.replace(/@\[[^\]]+\]/g, '').trim();
+                      if (textWithoutMentions === '' && suggestionText) {
+                        e.preventDefault();
+                        
+                        // If suggestion is "@Current Tab", insert the current tab mention
+                        if (suggestionText === '@Current Tab') {
+                          const currentTabMention = `@[${currentTab.title}]`;
+                          setInput(currentTabMention);
+                        } else {
+                          // Keep existing mentions and add the suggestion text
+                          const mentions = input.match(/@\[[^\]]+\]/g) || [];
+                          setInput(mentions.join(' ') + ' ' + suggestionText);
+                        }
+                        
+                        // Focus and position cursor at the end
+                        setTimeout(() => {
+                          if (spotlightRef.current) {
+                            spotlightRef.current.focus();
+                            const selection = window.getSelection();
+                            const range = document.createRange();
+                            range.selectNodeContents(spotlightRef.current);
+                            range.collapse(false);
+                            selection.removeAllRanges();
+                            selection.addRange(range);
+                          }
+                        }, 0);
+                        return;
+                      }
+                    }
+                    
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
                       handleExecute(input);
                     }
                     if (e.key === 'Escape') {
                       if (isReplyMode && replyThreadId) {
-                        // Exit reply mode and go back to thread list
                         setIsReplyMode(false);
                         setReplyThreadId(null);
                         setInput('');
@@ -2382,15 +2927,41 @@ export default function BrowserCopilot() {
                       }
                     }
                   }}
-                  placeholder={isReplyMode ? "Reply to Composite" : "Describe your browser task. Watch it get done."}
-                  className="flex-1 outline-none text-sm text-[#111111] placeholder-slate-500 bg-transparent resize-none overflow-y-auto"
+                  className="outline-none text-sm text-[#111111] bg-transparent resize-none overflow-y-auto w-full relative z-10"
                   style={{
-                    minHeight: '20px',
+                    minHeight: '40px',
                     maxHeight: '120px',
-                    lineHeight: '20px'
+                    lineHeight: '20px',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word'
                   }}
-                  rows={1}
                 />
+                {/* Placeholder suggestion that appears after mentions */}
+                {!isReplyMode && (() => {
+                  const textWithoutMentions = input.replace(/@\[[^\]]+\]/g, '').trim();
+                  // Only show if input is empty OR only contains the current tab mention
+                  const currentTabMention = `@[${currentTab.title}]`;
+                  const isEmptyOrCurrentTab = input === '' || input.trim() === currentTabMention.trim();
+                  
+                  if (textWithoutMentions === '' && suggestionText && isEmptyOrCurrentTab) {
+                    // Use the actual rendered HTML from contentEditable to measure width accurately
+                    const currentHTML = spotlightRef.current?.innerHTML || '';
+                    return (
+                      <div className="absolute left-0 top-0 pointer-events-none text-sm" style={{ lineHeight: '20px' }}>
+                        {currentHTML && (
+                          <span className="invisible" dangerouslySetInnerHTML={{ 
+                            __html: currentHTML
+                          }} />
+                        )}
+                        <span className="text-slate-400 italic">
+                          {suggestionText} <span className="ml-1 inline-block bg-slate-100 border border-slate-200 rounded text-[10px] leading-none font-medium text-slate-600 not-italic" style={{ padding: '1px 4px' }}>tab</span>
+                        </span>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
                 <div className="flex items-center gap-1">
                   {/* Stop button - only show when in reply mode AND thread is executing */}
                   {isReplyMode && replyThreadId && (() => {
@@ -2427,6 +2998,197 @@ export default function BrowserCopilot() {
           </div>
         </div>
       )}
+
+      {/* Tab Mention Dropdown - Rendered at root level to avoid overflow constraints */}
+      {showMentionDropdown && filteredTabs.length > 0 && (
+        <div 
+          ref={mentionDropdownRef}
+          className="fixed glass-card rounded-lg shadow-2xl border border-slate-200 max-h-64 overflow-hidden z-[60] flex flex-col"
+          style={{
+            top: `${mentionDropdownPosition.top - 8}px`,
+            left: `${mentionDropdownPosition.left}px`,
+            width: `${mentionDropdownPosition.width}px`,
+            transform: 'translateY(-100%)',
+          }}
+        >
+          <div className="px-3 py-1.5 text-xs font-medium text-slate-500 bg-white border-b border-slate-100 flex-shrink-0">
+            Mention a tab or file
+          </div>
+          <div className="py-1 overflow-y-auto">
+            {mentionMenuItems.map((item, index) => {
+              // File upload option
+              if (item.type === 'file-upload') {
+                return (
+                  <button
+                    key="file-upload"
+                    onClick={openFileSelector}
+                    onMouseMove={() => {
+                      if (!isKeyboardNavigating) {
+                        setSelectedMentionIndex(index);
+                      }
+                    }}
+                    onMouseEnter={() => {
+                      if (isKeyboardNavigating) {
+                        setIsKeyboardNavigating(false);
+                      }
+                    }}
+                    className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-left transition-colors ${
+                      index === selectedMentionIndex 
+                        ? 'bg-blue-50 border-l-2 border-blue-600' 
+                        : 'hover:bg-slate-50 border-l-2 border-transparent'
+                    }`}
+                  >
+                    <svg 
+                      className="w-4 h-4 flex-shrink-0 text-blue-600" 
+                      fill="none" 
+                      viewBox="0 0 24 24" 
+                      stroke="currentColor" 
+                      strokeWidth="2"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    <div className="text-sm font-medium text-blue-700 truncate">
+                      Upload a file
+                    </div>
+                    {index === selectedMentionIndex && (
+                      <div className="ml-auto flex items-center gap-1 text-xs text-slate-400 flex-shrink-0">
+                        <span className="px-1 py-0.5 bg-slate-100 rounded text-[10px] font-mono">↵</span>
+                      </div>
+                    )}
+                  </button>
+                );
+              }
+              
+              // Tab group header
+              if (item.type === 'group-header') {
+                const group = item.data;
+                return (
+                  <button
+                    key={`group-${group.id}`}
+                    onClick={() => toggleGroupExpansion(group.id)}
+                    onMouseMove={() => {
+                      if (!isKeyboardNavigating) {
+                        setSelectedMentionIndex(index);
+                      }
+                    }}
+                    onMouseEnter={() => {
+                      if (isKeyboardNavigating) {
+                        setIsKeyboardNavigating(false);
+                      }
+                    }}
+                    className={`w-full flex items-center gap-2 px-3 py-1.5 text-left transition-colors ${
+                      index === selectedMentionIndex 
+                        ? 'bg-slate-100 border-l-2 border-slate-400' 
+                        : 'hover:bg-slate-50 border-l-2 border-transparent'
+                    }`}
+                  >
+                    <svg 
+                      className={`w-3.5 h-3.5 flex-shrink-0 text-slate-600 transition-transform ${
+                        item.isExpanded ? 'rotate-90' : ''
+                      }`}
+                      fill="none" 
+                      viewBox="0 0 24 24" 
+                      stroke="currentColor" 
+                      strokeWidth="2"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                    <div 
+                      className="w-2 h-2 rounded-full flex-shrink-0" 
+                      style={{ backgroundColor: group.color }}
+                    />
+                    <div className="text-sm font-medium text-slate-700 truncate">
+                      {group.name}
+                    </div>
+                    <div className="ml-auto text-xs text-slate-500 flex-shrink-0">
+                      {group.tabs.length}
+                    </div>
+                    {index === selectedMentionIndex && (
+                      <div className="flex items-center gap-1 text-xs text-slate-400 flex-shrink-0">
+                        <span className="px-1 py-0.5 bg-slate-100 rounded text-[10px] font-mono">↵</span>
+                      </div>
+                    )}
+                  </button>
+                );
+              }
+              
+              // Tab item
+              if (item.type === 'tab') {
+                const tab = item.data;
+                const isCurrentTab = item.isCurrentTab;
+                const isGrouped = item.isGrouped;
+                const groupColor = item.groupColor;
+                
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => insertMention(tab)}
+                    onMouseMove={() => {
+                      if (!isKeyboardNavigating) {
+                        setSelectedMentionIndex(index);
+                      }
+                    }}
+                    onMouseEnter={() => {
+                      if (isKeyboardNavigating) {
+                        setIsKeyboardNavigating(false);
+                      }
+                    }}
+                    className={`w-full flex items-center gap-2.5 text-left transition-colors ${
+                      isGrouped ? 'pl-8 pr-3 py-1.5' : 'px-3 py-1.5'
+                    } ${
+                      index === selectedMentionIndex 
+                        ? 'bg-orange-50 border-l-2 border-[#F06423]' 
+                        : 'hover:bg-slate-50 border-l-2 border-transparent'
+                    }`}
+                  >
+                    {groupColor && !isCurrentTab && (
+                      <div 
+                        className="w-1 h-1 rounded-full flex-shrink-0" 
+                        style={{ backgroundColor: groupColor }}
+                      />
+                    )}
+                    <img 
+                      src={tab.favicon} 
+                      alt="" 
+                      className="w-4 h-4 flex-shrink-0"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                      }}
+                    />
+                    <div className="flex-1 min-w-0 flex items-center gap-2">
+                      <div className="text-sm font-medium text-slate-900 truncate">
+                        {tab.title}
+                      </div>
+                      {isCurrentTab && (
+                        <span className="px-1.5 py-0.5 bg-[#F06423] text-white text-[10px] font-medium rounded flex-shrink-0">
+                          Current Tab
+                        </span>
+                      )}
+                    </div>
+                    {index === selectedMentionIndex && (
+                      <div className="flex items-center gap-1 text-xs text-slate-400 flex-shrink-0">
+                        <span className="px-1 py-0.5 bg-slate-100 rounded text-[10px] font-mono">↵</span>
+                      </div>
+                    )}
+                  </button>
+                );
+              }
+              
+              return null;
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        onChange={handleFileUpload}
+        className="hidden"
+        aria-hidden="true"
+      />
 
     </div>
   );
