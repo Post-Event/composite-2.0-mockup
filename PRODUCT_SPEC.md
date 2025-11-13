@@ -67,7 +67,7 @@ The system MUST consist of:
 **Activation & Deactivation**
 - MUST support keyboard shortcut: `Cmd/Ctrl + Shift + Space` to toggle visibility
 - When activated, interface appears as modal overlay at bottom-center of screen
-- Clicking 'X' button closes interface
+- Clicking 'Esc' button in tab bar closes interface
 - Pressing `Escape` key closes interface (with context-aware behavior - see below)
 
 **Visual Design Requirements**
@@ -89,14 +89,50 @@ The system MUST consist of:
 - Optional: Snap to edges/corners for convenient positioning
 
 **Input Field**
-- Multi-line text input at bottom of modal
+- ContentEditable div at bottom of modal (NOT a textarea)
   - Automatically grows from 1 line up to maximum 6 lines as user types
   - Text wraps naturally to new lines
   - Becomes scrollable if content exceeds 6 lines
-- Composite logo icon displayed on left side of input (aligned to top)
-- Placeholder text:
-  - Default: "Describe your browser task. Watch it get done."
-  - When replying to thread: "Reply to Composite"
+- Voice Input icon displayed on left side of input (animated waveforms)
+  - Shows 5 vertical bars that animate when voice is active
+  - Activates on Ctrl (Mac) or Alt (Windows) key hold for 250ms
+  - Tooltip: "Voice Input (Hold Ctrl)" or "Voice Input (Hold Alt)"
+  - Click to toggle voice input on/off
+  - Orange color (#F06423) for waveforms
+- **Inline Tab Autocomplete System**:
+  - When input is empty or contains only current tab mention, shows inline suggestion
+  - Default suggestion: "@Current Tab" (when empty)
+  - After current tab mention: Shows task suggestion like "Send reminder emails for today"
+  - Suggestion appears in gray italic text with "tab" badge
+  - Press Tab key to accept and insert suggestion
+  - Suggestion automatically advances as user types matching text
+- **@ Mention System**:
+  - Typing "@" triggers dropdown menu above input field
+  - Menu header: "Mention a tab or file"
+  - Menu items include:
+    1. Current browser tab (always first, with "Current Tab" badge)
+    2. "Upload a file" option (blue icon)
+    3. Ungrouped tabs (individual tabs not in any group)
+    4. Tab groups (collapsible sections with color dots)
+       - Shows group name, color dot, and tab count
+       - Click to expand/collapse group
+       - Grouped tabs shown indented under header
+    5. All other open browser tabs
+  - Arrow keys navigate menu items
+  - Enter or Tab selects highlighted item
+  - Escape closes dropdown
+  - Typing after "@" filters tabs by title or URL
+  - When searching (has query), all groups auto-expand
+- **Mention Pills** (inline display of mentioned items):
+  - Tab mentions: Orange background, favicon, title, remove button
+    - Current tab shows as "@Current Tab" instead of full title
+    - Long titles truncated with ellipsis (20 char limit)
+    - Click X button to remove mention
+  - File mentions: Blue background, file icon, name, size, remove button
+    - Shows file size in KB (e.g., "23.5KB")
+    - Click X button to remove mention
+  - Pills are non-editable inline elements
+  - Cursor moves around pills, cannot edit text inside
 - Right side buttons (in order):
   - Stop button (square icon) - visible ONLY when replying to executing thread
     - Tooltip: "Stop execution (⌘P)"
@@ -105,19 +141,18 @@ The system MUST consist of:
     - Dark gray icon (slate-700)
     - Hover state: darker orange background (orange-200)
     - Same functionality as pressing Enter
-  - Close button (X icon) - always visible
 - Input automatically focused when spotlight opens
+- On spotlight open (when NOT in reply mode): Automatically inserts current tab mention with space
 - Enter key submits command (Shift+Enter adds new line)
 - Text styling: medium size, dark text on light/transparent background
 
 **Content Area (Above Input)**
-- Scrollable region with maximum height constraint
-- Displays one of four views (when a tab is toggled on):
-  1. **Suggestions View**: Example tasks with keyboard shortcuts
-  2. **Chat History View**: List of all task threads
-  3. **Reply Mode / Thread Detail View**: Individual thread conversation (replaces Chat History view)
-  4. **Settings View**: Quick settings and extension status
-- **Default state**: Suggestions tab toggled on (shows Suggestions View)
+- Scrollable region with maximum height constraint (max-h-96)
+- Displays one of two views (when a tab is toggled on):
+  1. **Chat History View**: List of all task threads
+  2. **Reply Mode / Thread Detail View**: Individual thread conversation (replaces Chat History view)
+  3. **Settings View**: Quick settings and extension status
+- **Default state**: No tabs toggled on (content area hidden)
 - **Empty state**: When all tabs are toggled off, content area is not displayed at all
 - Glass morphism continuation for visual consistency
 
@@ -126,45 +161,37 @@ The system MUST consist of:
 **Tab Bar Positioning**
 - Located between content area and input field
 - Horizontal layout with left-aligned tabs
-- Three tabs: Suggestions, Chat History, Settings
-- Action button (Sharing button) positioned on right side
-- Subtle separator line or visual break from content area
+- Two tabs: Chat History, Settings
+- Esc button positioned on right side
+- Orange top border (2px) visible when any tab is active
+- Tabs rendered in Chrome-style rounded-bottom design
 
 **Tab Behavior**
-- Three primary tabs: Suggestions, Chat History, Settings
+- Two primary tabs: Chat History, Settings
 - All tabs are **toggleable** (click to show/hide their content)
 - Multiple tabs can be closed simultaneously (content area disappears entirely)
 - Only one tab can be active/open at a time (mutually exclusive)
 - Tabs expand on selection (show icon + label)
-- Tabs collapse when inactive (show icon only, fixed width ~40px)
+- Tabs collapse when inactive (show icon only, fixed width 40px / w-10)
 - Active tab styling:
-  - Extends upward slightly to connect with content area
-  - Border highlighting (2px border on left, right, bottom)
+  - Extends upward slightly (-2px margin-top) to connect with orange border
+  - Border highlighting (2px border on left, right, bottom) in orange (#F06423)
   - White/solid background
-  - Accent color text
+  - Orange text (#F06423)
   - Shadow for elevation
 - Inactive tab styling:
   - Transparent background
-  - Gray/muted icon color
-  - Hover state with semi-transparent background
+  - Gray/muted icon color (slate-600)
+  - Hover state: text-[#111111], bg-white/40
 
 **Tab-Specific Features**
 
-1. **Suggestions Tab**
-   - Icon: Lightbulb
-   - **Toggled ON by default** when Spotlight opens (default view)
-   - Toggleable (click to show/hide)
-   - Automatically untoggles (closes) when user starts typing in input field
-   - Clicking again while active will close the tab (hide content area)
-   - No notification badge
-   - Tooltip: "Suggestions (⌘S)"
-
-2. **Chat History Tab**
+1. **Chat History Tab**
    - Icon: Clock
    - Toggleable (click to show/hide)
    - MUST display notification badge with count when threads need attention
-   - Badge positioning: top-right corner of tab
-   - Badge styling: red circular background, white number, small size (~12px diameter)
+   - Badge positioning: top-right corner of tab (absolute top-0 right-0)
+   - Badge styling: red circular background (bg-red-500), white number, small size (min-w-[12px] h-[12px]), border: white, text size: 8px, font-bold
    - Badge count calculation:
      - Include threads with status = `executing` (unless dismissed as ongoing)
      - Include threads with status = `clarification_needed` (unless dismissed)
@@ -172,95 +199,76 @@ The system MUST consist of:
      - Exclude threads that have been viewed since last action
    - Tooltip: "Chat History (⌘B)"
 
-3. **Settings Tab**
+2. **Settings Tab**
    - Icon: Gear/Settings icon
    - Toggleable (click to show/hide)
    - MUST display connection status indicator
-   - Status dot positioning: top-right corner of icon
+   - Status dot positioning: top-right corner of icon (absolute top-0 right-0)
    - Status dot styling:
-     - Green dot: Connected
-     - Orange dot: Disconnected
-     - ~10px diameter, circular, white border
+     - Green dot (bg-green-500): Connected
+     - Orange dot (bg-[#F06423]): Disconnected
+     - 10px diameter (w-[10px] h-[10px]), circular (rounded-full), white border (border border-white)
    - Tooltip: "Settings (⌘,)"
 
 **Additional Action Buttons (Right Side of Tab Bar)**
 
-**Sharing Button**
-- Positioned on right side of tab bar (after Settings button)
-- Toggleable button to enable/disable sharing current browser tab
-- Visual states:
-  - Enabled: Orange background (#F06423), white text
-  - Disabled: Light orange background (orange-100), dark gray text (slate-600)
-- Icon behavior:
-  - **When enabled**: Displays favicon of current browser tab
-    - Fallback to globe icon (🌐) if favicon fails to load
-  - **When disabled**: Shows globe icon (🌐)
-- Button label changes based on state:
-  - **Enabled (unhovered)**: "Sharing"
-  - **Enabled (hovered)**: Shows current tab title (e.g., "hi - Google Search")
-  - **Disabled**: "Share current tab"
-- Tooltip:
-  - **When enabled**: Shows tab title with shortcut (e.g., "hi - Google Search (⌘T)")
-  - **When disabled**: "Share current tab (⌘T)"
+**Esc Button**
+- Positioned on right side of tab bar (after flexible spacer)
+- Closes spotlight modal when clicked
+- Visual styling:
+  - Gray background (bg-slate-200)
+  - Gray text (text-slate-600)
+  - Hover state: bg-slate-300
+  - Rounded corners (rounded)
+  - Small text (text-[10px]), medium weight (font-medium)
+  - Compact padding (px-1.5 py-0.5)
+- Label: "Esc"
+- Tooltip: "Close (Esc)"
 
 **Tab Navigation Hiding**
 - MUST be hidden when in Reply Mode (viewing specific thread conversation)
 - User in Reply Mode sees only conversation view with back button
 - Exiting Reply Mode restores tab navigation
 
-### 3.3 Suggestions View
-
-**Display Conditions**
-- Shown when Suggestions tab is toggled on (active)
-- **Toggled ON by default** when Spotlight opens (default view shown to user)
-- Automatically becomes inactive (untoggles/closes) when user starts typing in input field
-- Hidden when other tabs are active (mutually exclusive)
-- Can be manually toggled on/off at any time via the tab button
-- When toggled off, content area disappears (unless another tab is active)
-
-**Suggestion Items**
-- List of 4+ pre-configured example tasks
-- Each suggestion is clickable button
-- Keyboard shortcuts displayed: ⌘1, ⌘2, ⌘3, ⌘4 for first four suggestions
-- **Click behavior**: Fills the input field with the suggestion text
-  - Does NOT immediately execute
-  - Input field is automatically focused after filling
-  - Cursor is positioned at the end of the text
-  - User can immediately press Enter to execute, or review/edit first
-  - Allows user to customize the suggestion before execution
-
-**Suggestion Button Design**
-- Full-width layout
-- Left-aligned text with task description
-- Right-aligned keyboard shortcut hint
-- Hover state: subtle background highlight
-- Glass morphism background (transparent when not hovering)
-- Spacing between suggestions for touch-friendly interaction
-
-**Example Suggestions**
-1. "Send reminder emails for today's reference check calls"
-2. "Create interview summary doc for today's candidates"
-3. "Add missing Zoom links to upcoming calendar events"
-4. "Export this week's calendar to CSV for reporting"
-
-### 3.4 Chat History View
+### 3.3 Chat History View
 
 **Thread List Display**
 - Shown when Chat History tab active and no specific thread selected
 - Vertical list of all task threads (most recent first)
 - Each thread shows:
-  - Status indicator dot (left side, colored by status, 8px diameter)
-  - Task command text (truncated if too long)
-  - Status label below command (e.g., "Ongoing", "Completed", "Attention Needed")
-  - Right chevron icon indicating clickable
-- Thread item spacing for easy selection
+  - Status indicator dot (left side, colored by status, 2px/w-2 h-2 diameter) - only shown if `showDot` is true
+  - Task command text (truncated if too long, tab mentions removed via `removeTabMentions()`)
+  - Status pill (right side) with color-coded background and label
+    - Ongoing (executing): blue background (bg-blue-50), blue text (text-blue-600), blue border
+    - Attention Needed (clarification_needed): yellow background (bg-yellow-50), yellow text (text-yellow-600), yellow border
+    - Error: red background (bg-red-50), red text (text-red-600), red border
+    - Completed (success): green background (bg-green-50), green text (text-green-600), green border
+    - Cancelled: gray background (bg-gray-100), gray text (text-gray-600), gray border
+- Thread item spacing for easy selection (px-2 py-1.5, gap-2)
+- Hover effect: white/60 background for non-active threads
+- Active thread: orange background tint (bg-[#F06423]/10) with orange border
+
+**Search Functionality**
+- Search bar positioned at top of thread list (sticky)
+- Styling: glass morphism (bg-white/80 backdrop-blur-sm), border-b
+- Search icon (w-3 h-3) positioned on left side of input (absolute left-2)
+- Input field: pl-7 pr-7 py-1, text-xs, bg-white/60
+- Clear button (X icon) appears when search query is present (absolute right-2)
+- Placeholder: "Search threads..."
+- Searches across:
+  - Thread command/title
+  - Conversation history messages
+  - Current action text
+- Empty state when no results: Search icon with message "No threads found matching '[query]'"
+- Search query state persisted until cleared or user navigates back from thread detail
 
 **Thread Status Indicators**
 
 | Status | Dot Color | Label | Show Dot If... |
 |--------|-----------|-------|----------------|
-| executing | Orange (#F06423) | "Ongoing" | Not dismissed as ongoing task |
-| clarification_needed | Red | "Attention Needed" | Not dismissed |
+| executing | Blue | "Ongoing" | Not dismissed as ongoing task |
+| clarification_needed | Yellow | "Attention Needed" | Not dismissed |
+| error | Red | "Error" | Not dismissed |
 | success | Green | "Completed" | Notification not dismissed |
 | cancelled | Gray | "Cancelled" | Never show dot |
 
@@ -270,14 +278,62 @@ The system MUST consist of:
 
 **Thread Item Interactions**
 - Click thread item → Enter Reply Mode for that thread
-- Hover effect: subtle background highlight
+- Hover effect: subtle background highlight (group-hover)
 - Active thread has orange/accent background tint
+- Three-dot menu button appears on hover (right side of thread item)
+  - MoreVertical icon (w-3.5 h-3.5, text-slate-600)
+  - opacity-0 normally, opacity-100 on group-hover
+  - Hover state: bg-white/80
+  - Opens dropdown menu with options
+
+**Thread Management Menu**
+Appears when three-dot button is clicked:
+- **Rename option**:
+  - Edit2 icon (w-3.5 h-3.5)
+  - Label: "Rename"
+  - Opens rename modal
+  - Text: text-xs text-slate-700
+  - Hover: bg-slate-50
+  - Padding: px-3 py-2
+- **Delete option**:
+  - Trash icon (w-3.5 h-3.5)
+  - Label: "Delete"
+  - Permanently removes thread
+  - Clears active thread state if the deleted thread was active
+  - Text: text-xs text-red-600
+  - Hover: bg-red-50
+  - Padding: px-3 py-2
+- Menu styling:
+  - Width: w-40 (160px)
+  - Background: white
+  - Border: border-slate-200
+  - Rounded: rounded-lg
+  - Shadow: shadow-lg
+  - Padding: py-1
+  - z-index: z-50
+  - Position: absolute right-0 top-full mt-1
+
+**Rename Thread Modal**
+- Fixed overlay: inset-0 with bg-black/40 backdrop-blur-sm
+- Modal dimensions: w-96 max-w-[90vw]
+- Centered positioning
+- Components:
+  - Title: "Rename Thread" (text-base font-semibold)
+  - Text input: Full width, border-slate-300, focus:ring-[#F06423]
+  - Auto-focused on open
+  - Buttons:
+    - Cancel: text-slate-600
+    - Save: bg-[#F06423] text-white
+- Keyboard shortcuts:
+  - Enter: Save rename
+  - Escape: Cancel rename
+- Styling: white bg, rounded-xl, shadow-2xl, p-6
 
 **Empty State**
 - When no threads exist: Display centered message "No active threads"
-- Styling: small gray text, centered in content area
+- Styling: small gray text (text-xs text-slate-500), centered in content area with vertical padding (py-8)
 
-### 3.5 Settings View
+### 3.4 Settings View
 
 **Display Conditions**
 - Shown when Settings tab is active
@@ -285,49 +341,66 @@ The system MUST consist of:
 - Minimal view with link to full settings page
 
 **Content**
-- **Header Section**:
-  - User avatar (circular, with user initial)
-  - Email address (e.g., "wasabininjaa@gmail.com")
-  - Extension connection status:
-    - Chrome icon with colored status dot
-    - Status text: "Connected" (green) or "Disconnected" (orange)
-    - Browser name and default indicator (e.g., "Chrome (Default)")
-- **Quick Actions** (inline links separated by bullets):
-  - "Rescan" - Re-scan for browser extensions
-  - "Install Extension" - Link to install browser extension
-  - "More Settings" - Opens full standalone settings page in new window/tab
+- **Header Section** (flex items-center gap-2.5):
+  - User avatar: Circular (w-8 h-8 rounded-full), orange background (#F06423), white text, user initial "W"
+  - Email address: "wasabininjaa@gmail.com" (text-xs font-medium text-[#111111])
+  - **Inline extension info** (below email, flex items-center gap-2 mt-0.5):
+    - Chrome icon (w-3 h-3 text-slate-600)
+    - Status dot: Green (bg-green-500) or Orange (bg-[#F06423]), 1.5px size (w-1.5 h-1.5 rounded-full)
+    - Status text: "Connected" or "Disconnected" (text-[10px] text-slate-600)
+    - Bullet separator: "•" (text-[10px] text-slate-400)
+    - Browser info: "Chrome (Default)" (text-[10px] text-slate-600)
+    - Refresh button: RefreshCw icon (w-3 h-3), gray hover: orange (text-slate-500 hover:text-[#F06423])
+    - Bullet separator: "•"
+    - "Install Extension" link (text-[10px] text-[#F06423] hover:text-[#F06423]/80 font-medium)
+    - Bullet separator: "•"
+    - "More Settings" link (text-[10px] text-[#F06423] hover:text-[#F06423]/80 font-medium)
+      - Opens settings.html in new window/tab via window.open('settings.html', '_blank')
 
 **Visual Styling**
-- Compact layout with minimal padding
-- Small text sizes for efficient space usage
+- Compact layout with padding (p-4)
+- Small text sizes for efficient space usage (text-[10px] and text-xs)
 - Orange accent color (#F06423) for action links
 - Status indicators match global color scheme
 
-### 3.6 Reply Mode / Thread Detail View
+### 3.5 Reply Mode / Thread Detail View
 
 **Entry Points**
-- Click any thread from Chat History list
+- Click any thread from Chat History list (automatically enters reply mode)
 - Click notification card
-- Use `Cmd/Ctrl + R` when notification visible
+- Use `Option/Alt + R` when notification visible
 
 **Visual Layout**
 - Replaces Chat History list with single thread detail view
 - Occupies full content area
-- Sticky header at top
+- Sticky header at top (single line, minimized)
 - Scrollable conversation history in middle
 - Input field remains at bottom
+- Tab navigation hidden in reply mode
 
-**Sticky Header Components**
-1. **Back Button**
-   - Icon: Corner-up-left arrow
-   - Text: "Chat History"
-   - Keyboard hint: "Esc" shown in badge
+**Sticky Header Components** (Single Line, Minimized)
+1. **Back Button** (left side)
+   - Icon: Corner-up-left arrow (CornerUpLeft, w-4 h-4)
+   - No text label - icon only
+   - Tooltip: "Chat History (Esc)"
    - Click or press Escape to return to thread list
-2. **Thread Title Section**
-   - Composite logo icon
-   - Original command as title (bold, larger text)
-   - Timestamp of thread creation (smaller gray text below)
-   - Horizontal separator line below header
+   - Styling: text-slate-600 hover:text-[#F06423]
+2. **Thread Title** (center, flex-1)
+   - Original command as title (text-sm font-semibold text-[#111111])
+   - Tab mentions removed via `removeTabMentions()`
+   - Truncated with text-center
+3. **Relative Timestamp** (right side, flex-shrink-0)
+   - Displays relative time (e.g., "5m", "2h", "3d")
+   - Formatted via `formatRelativeTime()` utility function
+   - Tooltip shows full timestamp on hover (e.g., "11/12/2025, 2:30:00 PM")
+   - Styling: text-xs text-slate-600 font-medium
+
+**Header Styling**
+- Background: gradient from orange-50/90 to white/80 with backdrop-blur-sm
+- Border: border-b-2 border-orange-200/40
+- Padding: px-4 py-3
+- Sticky positioning: top-0 z-10
+- Items aligned horizontally: flex items-center gap-3
 
 **Conversation History Display**
 - Chronological message flow (oldest at top)
@@ -349,37 +422,51 @@ The system MUST consist of:
 
 **Progress Visualization (To-Do List)**
 - Appears below relevant user message in conversation
-- Background: White/light glass effect with border
-- Shows major steps as numbered list
+- Background: White/60 glass effect with white/20 border (bg-white/60 border border-white/20)
+- Rounded corners (rounded-lg)
+- Padding: p-2.5
+- Margin: mr-4 (right margin)
+- Shows major steps as numbered list with spacing (space-y-2)
 
 **Major Step States**
 1. **Pending**
-   - Icon: Empty circle outline (gray)
-   - Text: Normal weight, dark color
-   - Substeps: Hidden
+   - Icon: Empty circle outline (w-3 h-3 rounded-full border-2 border-slate-300)
+   - Text: text-[10px] font-semibold text-slate-400 line-through
+   - Substeps: Hidden (not shown until step starts executing)
 
 2. **Executing** (only on live/latest progress)
-   - Icon: Animated spinner (orange)
-   - Text: Bold, dark color
-   - Substeps: Completed substeps shown with green checkmarks
+   - Icon: Animated spinner/Loader (w-3 h-3 text-[#F06423])
+   - Text: text-[10px] font-semibold text-slate-700 (bold, no strikethrough)
+   - Substeps: Completed substeps shown when expanded
    - Current substep updates in real-time
+   - Auto-expands when step has completed substeps
 
 3. **Completed**
-   - Icon: Green checkmark in circle
-   - Text: Bold, dark color
-   - Substeps: All completed substeps shown with green checkmarks
+   - Icon: Green checkmark in circle (CheckCircle, w-3 h-3 text-green-500)
+   - Text: text-[10px] font-semibold text-slate-700 (bold, dark color)
+   - Substeps: All completed substeps shown when expanded
+   - Auto-collapses after completion
 
 4. **Cancelled/Interrupted**
-   - Icon: X icon (gray)
-   - Text: Gray, crossed out
+   - Icon: X icon (w-3 h-3 text-slate-400)
+   - Text: text-[10px] font-semibold text-slate-400 line-through
    - Substeps: Not shown
 
+**Substep Expansion Controls**
+- Chevron button appears on left of step title when substeps are present
+- Click to toggle expansion (chevron down = expanded, chevron right = collapsed)
+- Button styling: p-0.5 hover:bg-white/50 rounded transition-colors
+- Chevron icon: w-2.5 h-2.5 text-slate-500
+- Auto-expand behavior: Steps auto-expand when executing and have substeps
+- Auto-collapse behavior: Steps auto-collapse when completed
+
 **Substep Display**
-- Indented list under major step
+- Indented list under major step (pl-2 mt-1.5)
+- List container: space-y-0.5
 - Each substep shows:
-  - Green checkmark icon
-  - Substep description text
-  - Small font size
+  - Green checkmark: "✓" (text-green-500 flex-shrink-0)
+  - Substep description text (text-[10px] text-slate-600)
+  - Layout: flex items-start gap-1.5
 - Only completed substeps are shown
 - As task executes, substeps appear incrementally
 
@@ -395,17 +482,21 @@ The system MUST consist of:
 - Message styling: Same as other Composite messages (white/light background)
 
 **Reply Mode Input Behavior**
-- Placeholder text: "Reply to Composite"
+- Placeholder text: "Reply to Composite" (generated by `getSuggestionText()` when in reply mode)
 - Enter key sends reply and adds to conversation
 - Spotlight remains open after sending reply (user sees response)
 - Stop button visible in input area if thread currently executing
+- Input automatically focused when entering reply mode
+- Tab mentions NOT automatically inserted in reply mode
 
 **Escape Key Behavior in Reply Mode**
 - First Escape: Exit Reply Mode, return to Chat History list
 - Input field cleared
-- Thread remains selected in list
+- Thread remains selected in list (activeThreadId cleared)
+- Search query cleared when returning to thread list
+- Tab navigation becomes visible again
 
-### 3.7 Settings Page (Standalone - Full Version)
+### 3.6 Settings Page (Standalone - Full Version)
 
 **Overview**
 - Accessed via "More Settings" link in Settings View (3.5)
@@ -523,7 +614,7 @@ Organized into sections with uppercase section headers:
 - External links open in new tab/browser
 - Back to main app via window close or app navigation
 
-### 3.8 Navigation Between Spotlight and Settings
+### 3.7 Navigation Between Spotlight and Settings
 
 **Accessing Settings**
 1. **Quick Settings (within Spotlight)**
@@ -554,6 +645,184 @@ Organized into sections with uppercase section headers:
 - Connection status updates reflected in both Settings tab and full Settings page
 - User profile changes available to task execution context
 
+### 3.8 Tab Mentioning System
+
+**Overview**
+- Allows users to reference specific browser tabs or tab groups in their commands
+- Uses @ syntax similar to social media mentions
+- Provides context about which tabs the task should operate on
+
+**Utility Functions**
+Two key utility functions manage mention display:
+
+1. **`removeTabMentions(text)`**: Removes all @[...] patterns from text
+   - Used when displaying thread titles in Chat History and notifications
+   - Cleans up extra whitespace after removal
+   - Returns plain text without mention syntax
+   - Example: "@[Gmail - Inbox] Send email" → "Send email"
+
+2. **`renderMessageWithTabBadges(message)`**: Renders mentions as inline badges
+   - Used in Reply Mode conversation history
+   - Converts @[...] patterns to styled badge components
+   - Shows favicon and truncated title (max 30 chars)
+   - Orange styling matching mention pills (bg-orange-50, border-[#F06423]/30)
+   - Returns React component with mixed text and badge elements
+
+**Mention Dropdown Behavior**
+- Triggered by typing "@" character in input field
+- Dropdown appears above input field (fixed positioning with transform: translateY(-100%))
+- Dropdown width matches input field width
+- Maximum height: 256px (max-h-64) with overflow scroll
+- Glass card styling with shadow and border
+
+**Dropdown Content Structure**
+1. **Header**: "Mention a tab or file" (text-xs font-medium text-slate-500, bg-white, border-b)
+2. **Menu Items** (py-1 overflow-y-auto):
+   - Current Tab (always first if matches filter)
+   - Upload a file option
+   - Ungrouped tabs
+   - Tab groups (with expand/collapse)
+   - Grouped tabs (indented when group expanded)
+
+**Tab Item Display**
+- Favicon (w-4 h-4)
+- Tab title (text-sm font-medium text-slate-900, truncated)
+- "Current Tab" badge for active tab (bg-[#F06423] text-white text-[10px])
+- Group color dot for grouped tabs (w-1 h-1 rounded-full)
+- Selection indicator: Orange background (bg-orange-50) with orange left border (border-l-2 border-[#F06423])
+- Enter key hint (↵) shown when item is selected
+
+**Tab Group Display**
+- Chevron icon (rotates 90° when expanded)
+- Color dot matching group color (w-2 h-2 rounded-full)
+- Group name (text-sm font-medium text-slate-700)
+- Tab count (text-xs text-slate-500)
+- Selection indicator: Gray background (bg-slate-100) with gray left border
+- Enter key hint shown when selected
+
+**Search/Filter Behavior**
+- Typing after "@" filters tabs by title or URL (case-insensitive)
+- Search automatically expands all groups
+- No group headers shown during search
+- Grouped tabs shown flat with group color dots
+- Current tab always shown first if it matches
+
+**Keyboard Navigation**
+- Arrow Down/Up: Navigate through items
+- Enter or Tab: Select highlighted item
+- Escape: Close dropdown
+- Mouse hover: Updates selection (disables keyboard navigation mode until next arrow key)
+
+**Mention Pills** (rendered in input)
+- Tab mentions: Orange themed (bg-orange-50 border-orange-[#F06423]/30)
+- File mentions: Blue themed (bg-blue-50 border-blue-300)
+- Non-editable inline elements (contenteditable="false")
+- Show favicon/icon, title/name, and remove button (X)
+- Remove button: Hover effect (hover:bg-[#F06423]/20 for tabs, hover:bg-blue-200 for files)
+
+**Data Storage**
+- `mentionedTabs`: Map storing tab data keyed by tab title
+- `uploadedFiles`: Map storing file data keyed by file name
+- Input state stores mention as text: `@[Tab Title]` or `@[File Name]`
+- Pills rendered from Map data for display
+
+### 3.9 File Upload System
+
+**Overview**
+- Allows users to upload files to attach to commands
+- Integrated into mention dropdown as "Upload a file" option
+- Files treated as mentions with blue styling
+
+**Upload Flow**
+1. User types "@" to open mention dropdown
+2. "Upload a file" option appears second in list (after current tab)
+3. User clicks option or selects with keyboard and presses Enter
+4. Hidden file input triggered (multiple files supported)
+5. File(s) selected by user
+6. File mention inserted into input: `@[filename.ext]`
+7. File data stored in `uploadedFiles` Map
+
+**File Data Structure**
+```javascript
+{
+  id: 'file_${timestamp}_${random}',
+  name: 'filename.ext',
+  size: 12345, // bytes
+  type: 'image/png',
+  file: File object
+}
+```
+
+**File Mention Pill Display**
+- Blue background (bg-blue-50)
+- Blue border (border-blue-300)
+- File icon (w-3 h-3 text-blue-700)
+- Truncated filename (max 20 chars)
+- File size in KB (text-[10px] text-blue-500)
+- Remove button with blue hover (hover:bg-blue-200)
+
+**File Upload Option Display**
+- Blue upload icon (cloud with arrow, w-4 h-4 text-blue-600)
+- Label: "Upload a file" (text-sm font-medium text-blue-700)
+- Selection: Blue background (bg-blue-50) with blue left border (border-l-2 border-blue-600)
+- Enter key hint when selected
+
+**Technical Implementation**
+- Hidden file input element (ref: fileInputRef)
+- Multiple file selection enabled (multiple attribute)
+- Input reset after upload (value = '')
+- Mention dropdown closes after file selected
+- Input refocused automatically
+
+### 3.10 Voice Input System
+
+**Overview**
+- Provides voice input capability for commands
+- Activated by holding Ctrl (Mac) or Alt (Windows) key
+- Visual feedback through animated waveform
+
+**Activation Behavior**
+- Hold Ctrl (Mac) or Alt (Windows) for 250ms to activate
+- Release key to deactivate
+- Hold click icon to toggle on/off
+- Activation state tracked in `isVoiceActive`
+
+**Visual Indicator**
+- 5 vertical bars (w-0.5 rounded-full bg-[#F06423])
+- Each bar has different height when active/inactive:
+  - Bar 1: 16px active, 6px inactive
+  - Bar 2: 20px active, 10px inactive
+  - Bar 3: 24px active, 14px inactive
+  - Bar 4: 20px active, 10px inactive
+  - Bar 5: 16px active, 6px inactive
+- Bars animate with staggered delays when active (0s, 0.1s, 0.2s, 0.3s, 0.4s)
+- CSS class 'voice-wave' applied when active
+- Smooth transitions (transition-all duration-150)
+
+**Positioning**
+- Left side of input field (before contentEditable div)
+- w-4 h-4 dimensions
+- flex-shrink-0 mt-0.5 (aligned to top of input)
+- gap-3 between icon and input
+
+**Tooltip**
+- "Voice Input (Hold Ctrl)" on Mac
+- "Voice Input (Hold Alt)" on Windows
+- Platform detected via `navigator.platform.toUpperCase().indexOf('MAC')`
+
+**Key Hold Detection**
+- Timer starts on keydown (250ms delay)
+- Timer cleared if key released before 250ms
+- Voice activates only after timer completes
+- Deactivates immediately on key release
+- Prevents accidental activation from brief key presses
+
+**Interaction**
+- Hover opacity: 80% (hover:opacity-80)
+- Cursor: pointer
+- Click toggles state immediately (no delay)
+- Both click and key hold can activate
+
 ---
 
 ## 4. Notification System Requirements
@@ -582,120 +851,118 @@ A notification MUST be shown for a thread if ALL of the following are true:
 - All notifications immediately hidden when Spotlight opens
 - Notifications reappear when Spotlight closes (if still meeting trigger conditions)
 
-### 4.3 Notification Cards (macOS Style)
+### 4.3 Notification Carousel System
 
 **Positioning**
 - Fixed position: Top-right corner of screen
 - Offset from edge: ~24px from top, ~24px from right
 - Width: Fixed width (~380px)
-- Stack vertically when multiple notifications present
+- Shows one notification at a time in a carousel format
 
 **Count Synchronization**
-- Number of notification cards shown = Chat History badge count (see 4.6)
-- **1:1 correspondence**: Each notification card corresponds to exactly one unviewed/undismissed thread
-- Badge shows "3" → Exactly 3 notification cards would appear when Spotlight is closed
+- Number of notifications = Chat History badge count (see 4.6)
+- **1:1 correspondence**: Each notification corresponds to exactly one unviewed/undismissed thread
+- Badge shows "3" → 3 notifications available to cycle through when Spotlight is closed
 
 **Notification Prioritization**
 
-Notifications MUST be sorted by priority to ensure most urgent items appear first:
-
-**Priority Levels (highest to lowest)**:
-1. **Error** (status = `error`) - Highest priority
-2. **Action Required** (status = `clarification_needed`) - High priority  
-3. **Ongoing** (status = `executing`) - Medium priority
-4. **Completed** (status = `success`) - Low priority
-5. **Other statuses** (e.g., `cancelled`) - Lowest priority
+Notifications are sorted by timestamp (creation time) for chronological display:
 
 **Sorting Rules**:
-- Sort primarily by priority level
-- Within same priority level, sort by `lastActionTime` (most recent first)
-- Priority sorting applies to both collapsed and expanded notification views
-- Top notification always shows highest priority thread
+- Sort by `timestamp` (thread creation time)
+- Most recent threads appear first (newest to oldest)
+- Implemented via `getSortedNotifications()` utility function
+- Uses `threadB.timestamp.getTime() - threadA.timestamp.getTime()` for descending order
+- Sorting determines carousel order
+- First notification (index 0) is the most recently created thread
 
-**Stacking Behavior (macOS Style)**
+**Note**: Previous priority-based sorting (error > clarification > executing > success) has been replaced with simple timestamp-based sorting for more intuitive chronological display.
+
+**Carousel Behavior**
 
 **Single Notification**
 - Displays one notification card
 - Fully interactive (click to open thread)
-- No stack indicators
+- No sidebar controls visible
 
-**Two Notifications**
-- Top notification shows highest priority thread
-- One "stack edge" indicator visible below (visual only, not interactive)
-- Click top card → Expands to show all notifications in priority order
+**Multiple Notifications (2 or more)**
+- Shows one notification at a time
+- Sidebar with controls visible on left side
+- Sidebar contains (top to bottom):
+  1. Dismiss All button (Ban icon, red) - Tooltip: "Dismiss all notifications (⌥X)"
+  2. Up arrow - Cycles to previous notification - Tooltip: "Previous notification (⌥↑)"
+  3. Down arrow - Cycles to next notification - Tooltip: "Next notification (⌥↓)"
+  4. Counter display - Shows "X/Y" format (e.g., "1/3" for first of 3 notifications)
+- Sidebar buttons have hover effect (bg-white/20)
+- Sidebar separated by border-r border-white/10
+- Each control separated by border-b border-white/10
 
-**Three or More Notifications**
-- Top notification shows highest priority thread
-- Two "stack edge" indicators visible below (visual only)
-- Click top card → Expands to show all notifications in priority order
-
-**Stack Edge Indicator Specs**
-- Positioned behind and slightly below the main card
-- Each edge offset by 4px lower than previous
-- Partial height showing (~16px of visibility)
-- Same glass morphism styling as notification cards
-- Only bottom and side borders visible
-- Creates layered appearance
-
-**Expanded Stack View**
-- All notifications shown in vertical list, sorted by priority
-- Notifications ordered: Error → Action Required → Ongoing → Completed
-- Spacing between cards: ~8px
-- Each card fully interactive
-- Scroll if needed (more notifications than fit on screen)
-- "Collapse" button at bottom (returns to collapsed view)
-- "Dismiss All" button at bottom (clears all notifications)
+**Carousel Navigation**
+- **Keyboard shortcuts**:
+  - `Option + ↑` (Alt + Up Arrow): Previous notification (cycles to last if at first)
+  - `Option + ↓` (Alt + Down Arrow): Next notification (cycles to first if at last)
+  - `Option + R` (Alt + R): Reply to current notification (opens Spotlight in Reply Mode)
+  - `Option + P` (Alt + P): Stop execution of current notification (if executing)
+  - `Option + X` (Alt + X): Dismiss all notifications
+- **Mouse interactions**:
+  - Click Up/Down arrows to cycle
+  - Click main card to open thread
+  - Click Stop button (if thread executing)
+  - Click X button to dismiss current notification
+- **Cycling behavior**:
+  - Infinite loop: Last → First, First → Last
+  - Current index tracked in state (`currentNotificationIndex`)
+  - Index automatically resets to 0 if current notification is dismissed
 
 ### 4.4 Notification Card Design
 
 **Card Structure**
 - Glass morphism background (semi-opaque, blurred)
-- Rounded corners
-- Border with light color
-- Shadow for elevation
+- Rounded corners (rounded-xl)
+- Border with light color (border-white/20)
+- Shadow for elevation (shadow-2xl)
 - Two sections: Header and Body
 
 **Header Section**
-- Background: Slightly more opaque than body
-- Border bottom: Subtle separator
-- Layout: Horizontal flex
+- Background: Slightly more opaque (bg-white/10)
+- Border bottom: Subtle separator (border-white/10)
+- Layout: Horizontal flex with justify-between
+- Padding: px-3 py-1.5
 - Components:
-  - Composite logo icon (left)
-  - Task command text (center, truncated if needed)
-  - Stop button (if thread executing, before X)
-  - Close/Dismiss button (X icon, right)
+  - Composite logo icon (left, w-3.5 h-3.5, text-[#F06423])
+  - Task command text (center, text-xs, truncated, font-medium, text-[#111111])
+  - Stop button (if thread executing, before X) - Square icon, w-3.5 h-3.5
+  - Close/Dismiss button (X icon, right, w-3.5 h-3.5)
+- Tab mentions removed from command display using `removeTabMentions()` utility
 
 **Body Section**
-- Padding for comfortable reading
+- Padding: px-3 py-2
 - Status icon (left, appropriate for thread status)
-- Current action text (body text, word-wrapped)
+- Current action text (text-xs, text-slate-700, leading-snug)
+- Layout: flex items-start gap-2
+
+**Reply Button (macOS-style)**
+- Positioned: Absolute bottom-right corner (bottom-1.5 right-1.5)
+- Visibility: opacity-0 by default, opacity-100 on group-hover
+- Styling:
+  - Orange background (bg-orange-100)
+  - Rounded corners
+  - Slate text (text-slate-700)
+  - Shadow (shadow-md)
+  - Orange border (border-orange-200)
+  - Padding: p-1.5
+  - Backdrop blur (backdrop-blur-sm)
+- Icon: CornerDownLeft (w-3.5 h-3.5)
+- Tooltip: "Reply (⌥R)"
+- Smooth fade transition (transition-opacity)
 
 **Interaction Behaviors**
-- Hover: Subtle shadow increase or border highlight
-  - **"Reply" button display**:
-    - **Collapsed stack (2+ notifications)**: NO reply button on top card (clicking will expand stack)
-    - **Expanded stack**: Shows numbered reply button on each card
-      - First card: "Reply ⌘R"
-      - Second card: "Reply ⌘R2"
-      - Third card: "Reply ⌘R3"
-      - And so on up to 9th card: "Reply ⌘R9"
-    - **Single notification**: Shows "Reply ⌘R" button
-    - Button styling: Light orange background (orange-100), darker gray text (slate-700), orange border (orange-200), medium shadow
-    - Does not take up additional space (overlays on top of content)
-    - Smooth fade-in/fade-out transition
-- Click card body: 
-  - **Single notification**: Open Spotlight with thread in Reply Mode
-  - **Collapsed stack (2+ notifications)**: Expand to show all notifications in stack
-  - **Expanded stack**: Each card opens Spotlight with that thread in Reply Mode
-- Click X button: Dismiss notification (with event propagation stop)
+- Click card body: Opens Spotlight with thread in Reply Mode
+- Click X button: Dismiss current notification (with event propagation stop)
 - Click Stop button: Stop thread execution (with event propagation stop)
-  - Tooltip in expanded view: Shows numbered shortcut matching notification position
-    - 1st notification (if executing): "Stop execution (⌘P)"
-    - 2nd notification (if executing): "Stop execution (⌘P2)"
-    - 3rd notification (if executing): "Stop execution (⌘P3)"
-    - Numbers align with Reply button numbers
-  - Tooltip in collapsed/single view: "Stop execution (⌘P)"
+  - Tooltip: "Stop execution (⌥P)"
   - Only visible when thread is executing
+- Hover: Reply button fades in at bottom-right corner
 
 ### 4.5 Notification Dismissal
 
@@ -1030,71 +1297,40 @@ Notifications MUST be sorted by priority to ensure most urgent items appear firs
 | Shortcut | Action | Context |
 |----------|--------|---------|
 | `Cmd/Ctrl + Shift + Space` | Toggle Spotlight visibility | Global (anywhere in app) |
-| `Cmd/Ctrl + R` | Enter Reply Mode for first (top) visible notification | Global (when Spotlight closed) |
-| `Cmd/Ctrl + R` + `2-9` | Enter Reply Mode for 2nd-9th visible notification | Global (when Spotlight closed, multiple notifications) |
-| `Cmd/Ctrl + R` | Enter Reply Mode for current thread | In Spotlight (not already in Reply Mode) |
-| `Cmd/Ctrl + P` | Stop execution of first (top) executing notification | Global (when Spotlight closed, notification executing) |
-| `Cmd/Ctrl + P` + `2-9` | Stop execution of 2nd-9th executing notification | Global (when Spotlight closed, multiple executing notifications) |
+| `Option/Alt + R` | Enter Reply Mode for current (visible) notification | Global (when Spotlight closed, notification visible) |
+| `Option/Alt + P` | Stop execution of current notification | Global (when Spotlight closed, current notification executing) |
+| `Option/Alt + ↑` | Cycle to previous notification | Global (when Spotlight closed, multiple notifications) |
+| `Option/Alt + ↓` | Cycle to next notification | Global (when Spotlight closed, multiple notifications) |
+| `Option/Alt + X` | Dismiss all notifications | Global (when Spotlight closed, notifications visible) |
 | `Cmd/Ctrl + P` | Stop execution of active thread | In Spotlight (when active thread is executing) |
+
+**Note on macOS Option/Alt Key Handling**:
+- macOS generates special characters when Option is pressed with certain keys (e.g., Option+R = ®, Option+P = π, Option+X = ≈)
+- Implementation uses `e.code` (e.g., 'KeyR', 'KeyP', 'KeyX') instead of `e.key` to reliably detect these shortcuts
+- Shortcuts check both `e.key` and `e.code` for cross-platform compatibility
 
 ### 7.2 Context-Specific Shortcuts
 
 | Shortcut | Action | Context |
 |----------|--------|---------|
 | `Enter` | Submit command/reply | Input field focused |
+| `Tab` | Autocomplete inline suggestion | Input empty or has only tab mention |
+| `Shift + Enter` | Add new line | Input field focused |
 | `Escape` | Close Spotlight | Spotlight open, not in Reply Mode |
 | `Escape` | Exit Reply Mode | In Reply Mode |
-| `⌘1` through `⌘4` | Execute suggestion 1-4 | Suggestions view visible |
+| `Escape` | Close mention dropdown | Mention dropdown open |
+| `Ctrl` (Mac) / `Alt` (Windows) | Activate voice input (hold 250ms) | Spotlight open |
+| `@` | Open tab/file mention dropdown | Input field focused |
+| `Arrow Down` / `Arrow Up` | Navigate mention dropdown items | Mention dropdown open |
+| `Enter` or `Tab` | Select highlighted mention item | Mention dropdown open |
 
 ### 7.3 Spotlight View Shortcuts
 
 | Shortcut | Action | Context |
 |----------|--------|---------|
-| `Cmd/Ctrl + S` | Toggle Suggestions tab | Spotlight open, not in Reply Mode |
 | `Cmd/Ctrl + B` | Toggle Chat History tab | Spotlight open, not in Reply Mode |
 | `Cmd/Ctrl + ,` | Toggle Settings modal | Spotlight open, not in Reply Mode |
-| `Cmd/Ctrl + T` | Toggle Share Current Tab | Spotlight open, not in Reply Mode |
 
-### 7.4 Notification Shortcuts (Multiple Notifications)
-
-**Reply Shortcuts (Cmd/Ctrl + R)**
-
-**When Multiple Notifications Visible**
-- `Cmd/Ctrl + R` alone replies to the **top (first) notification** (highest priority)
-- `Cmd/Ctrl + R` followed by a number `2-9` replies to that notification in the stack
-  - Example: `Cmd + R` then `3` replies to the 3rd notification
-  - Notifications are numbered 1-9 from top to bottom (by priority order)
-  - If number exceeds notification count, command is ignored
-
-**Priority Order**
-- Notifications sorted by: Error > Action Required > Ongoing > Completed
-- Within same priority, sorted by most recent first
-- Number shortcuts follow this sorted order
-
-**Behavior**
-- Opens Spotlight with the selected thread in Reply Mode
-- Same effect as clicking that specific notification card
-- Works whether stack is collapsed or expanded
-
-**Stop Execution Shortcuts (Cmd/Ctrl + P)**
-
-**When Executing Notifications Visible**
-- `Cmd/Ctrl + P` followed by a number `1-9` stops the notification at that position
-  - Example: `Cmd + P` then `3` stops the 3rd notification (if it's executing)
-  - **Numbers align with Reply shortcuts** - same position as ⌘R, ⌘R2, ⌘R3, etc.
-  - If the notification at that position is NOT executing, command is ignored
-  - If no number pressed within 1 second, stops the first executing notification
-  
-**Example Scenario**
-- Notification 1 (completed) - No stop button, ⌘P1 does nothing
-- Notification 2 (executing) - Stop button shows "⌘P2"
-- Notification 3 (completed) - No stop button, ⌘P3 does nothing  
-- Notification 4 (executing) - Stop button shows "⌘P4"
-
-**Behavior**
-- Stops the specified thread execution (status changes to cancelled)
-- Same effect as clicking the Stop button on that notification
-- Thread freezes at current progress state
 
 ### 7.5 Focus Management
 
@@ -1268,31 +1504,62 @@ The system MUST support complex, multi-step tasks similar to these examples:
 
 **Core State Objects**:
 
-```
+```javascript
 {
   // UI State
   showSpotlight: boolean,
   input: string,
-  showSuggestions: boolean,
   showThreadsModal: boolean,
+  showSettingsModal: boolean,
   isReplyMode: boolean,
   replyThreadId: number/string | null,
   activeThreadId: number/string | null,
-  spotlightPosition: object { x: number, y: number } | null, // null = default position
+  modalPosition: object { x: number, y: number }, // Draggable position
+  isDragging: boolean,
+  dragStart: object { x: number, y: number },
   chromeConnected: boolean, // Connection status (green = true, orange = false)
-  sharingEnabled: boolean, // Whether tab sharing is enabled
-  currentTab: object { title: string, favicon: string }, // Current browser tab info
+  currentTab: object { id: string, title: string, favicon: string, url: string }, // Current browser tab info
+  threadSearchQuery: string, // Search query for filtering threads in Chat History
+  
+  // Voice Input State
+  isVoiceActive: boolean, // Whether voice input is active
+  voiceKeyTimerRef: ref, // Timer for key hold detection
+  voiceActivatedRef: ref, // Track if voice was activated
+  
+  // Tab Mention State
+  showMentionDropdown: boolean,
+  mentionQuery: string,
+  mentionCursorPosition: number | null,
+  selectedMentionIndex: number,
+  mentionDropdownPosition: object { top: number, left: number, width: number },
+  isKeyboardNavigating: boolean,
+  mentionedTabs: Map (tab title → tab data),
+  
+  // File Upload State
+  uploadedFiles: Map (file name → file data),
+  fileInputRef: ref,
+  
+  // Tab Groups State
+  tabGroups: array of group objects (id, name, color, tabs),
+  ungroupedTabs: array of tab objects,
+  availableTabs: array (flattened from groups + ungrouped),
+  expandedGroups: Set of group IDs,
   
   // Thread Data
   threads: array of thread objects,
   
   // Notification State
   visibleNotifications: array of thread IDs,
-  expandedNotificationGroup: boolean,
+  currentNotificationIndex: number, // Current index in notification carousel
   lastNotificationAction: object (threadId → currentAction),
   threadViewTimestamps: object (threadId → timestamp),
   dismissedOngoingTasks: Set of thread IDs,
   dismissedAttentionNeeded: Set of thread IDs,
+  
+  // Thread Management State
+  openMenuThreadId: number/string | null, // Track which thread has menu open
+  renamingThreadId: number/string | null, // Track which thread is being renamed
+  renameValue: string, // Temporary value for rename input
   
   // Settings (persisted, accessed via separate settings page)
   chromeConnected: boolean,
@@ -1570,25 +1837,71 @@ The system MUST support complex, multi-step tasks similar to these examples:
 
 ---
 
-## 14. Future Enhancements (Out of Scope for v2.0)
+## 14. Features Removed in Current Version
 
-*These features are NOT required for Composite 2.0 but may be considered for future versions:*
+*These features were present in earlier versions but have been removed or replaced in the current implementation:*
 
-### 14.1 Advanced Features
-- Voice command input
+### 14.1 Removed Features
+
+**Suggestions Tab**
+- Previously: Default tab showing 4 pre-configured example tasks with keyboard shortcuts (⌘1-⌘4)
+- Replaced by: Inline tab autocomplete system with dynamic suggestions based on context
+- Rationale: Inline suggestions provide more context-aware and space-efficient guidance
+
+**Share Current Tab Button**
+- Previously: Toggleable button on right side of tab bar to enable/disable sharing current browser tab
+- Showed favicon and tab title with orange styling when enabled
+- Keyboard shortcut: ⌘T
+- Replaced by: @ mention system that allows referencing any tab inline in commands
+- Rationale: @ mentions provide more flexible and explicit tab referencing
+
+**Close Button (X) in Input Area**
+- Previously: Always-visible X button on right side of input field
+- Replaced by: Esc button in tab bar
+- Rationale: Consolidated close action with keyboard shortcut hint
+
+**Static Placeholder Text**
+- Previously: "Describe your browser task. Watch it get done."
+- Replaced by: Dynamic inline autocomplete suggestions
+- Rationale: More helpful to show actionable suggestions than generic instructions
+
+### 14.2 Changed Features
+
+**Input Field Type**
+- Changed from: Textarea element
+- Changed to: ContentEditable div
+- Rationale: Enables rich inline elements (mention pills) with non-editable components
+
+**Tab Bar Default State**
+- Changed from: Suggestions tab toggled ON by default
+- Changed to: All tabs closed by default (content area hidden)
+- Rationale: Cleaner initial state, allows user to focus on input
+
+**Input Initialization**
+- Added: Automatic insertion of current tab mention when spotlight opens
+- Behavior: "@[Current Tab] " pre-filled in input (not in reply mode)
+- Rationale: Encourages users to specify context for their commands
+
+## 15. Future Enhancements (Out of Scope for Current Version)
+
+*These features are NOT currently implemented but may be considered for future versions:*
+
+### 15.1 Advanced Features
+- Voice-to-text transcription (voice input UI exists but not connected)
 - Scheduled/recurring tasks
 - Task templates and macros
 - Multi-user collaboration on tasks
 - Mobile companion app
 - Integration with non-browser apps (desktop software automation)
+- Drag-and-drop file upload (currently requires using @ mention menu)
 
-### 14.2 AI Improvements
+### 15.2 AI Improvements
 - More sophisticated natural language understanding
 - Proactive task suggestions based on user behavior
 - Learning from user corrections and preferences
 - Visual element recognition without accessibility labels
 
-### 14.3 Enterprise Features
+### 15.3 Enterprise Features
 - Team workspaces and shared tasks
 - Admin controls and usage analytics
 - SSO and directory integration
@@ -1596,23 +1909,28 @@ The system MUST support complex, multi-step tasks similar to these examples:
 
 ---
 
-## 15. Success Metrics & KPIs
+## 16. Success Metrics & KPIs
 
-### 15.1 User Engagement Metrics
+### 16.1 User Engagement Metrics
 - Daily active users
 - Tasks initiated per user per day
 - Task completion rate (success vs. cancelled/failed)
 - Average task complexity (number of major steps)
 - Repeat usage rate (users returning within 7 days)
+- Tab mention usage rate (percentage of commands using @ mentions)
+- File upload usage rate (percentage of commands with file attachments)
+- Voice input usage rate (percentage of commands using voice input)
 
-### 15.2 Performance Metrics
+### 16.2 Performance Metrics
 - Average task execution time
 - Time to first notification
 - UI responsiveness (p95 latency for interactions)
 - Extension connection uptime
 - Error rate per task type
+- Mention dropdown load time
+- Input field rendering performance with multiple mentions
 
-### 15.3 User Satisfaction Metrics
+### 16.3 User Satisfaction Metrics
 - User survey scores (NPS, CSAT)
 - Feature usage (which tabs/settings used most)
 - Support ticket volume
@@ -1620,107 +1938,359 @@ The system MUST support complex, multi-step tasks similar to these examples:
 
 ---
 
-## 16. Technical Stack Recommendations
+## 17. Technical Stack Recommendations
 
 *While this PRD focuses on functionality rather than implementation, these technical choices are implied by the codebase structure:*
 
-### 16.1 Frontend Technology
-- **Framework**: React.js with hooks (as evidenced by useState, useEffect)
+### 17.1 Frontend Technology
+- **Framework**: React.js with hooks (as evidenced by useState, useEffect, useCallback, useMemo, useRef)
 - **Styling**: Tailwind CSS for utility classes, CSS modules for glass morphism effects
 - **Build Tool**: Vite for fast development and optimized builds
 - **State Management**: React hooks (useState, useEffect, useCallback) for local state
+- **Rich Text Input**: ContentEditable API for mention pills and inline elements
 
-### 16.2 Browser Extension
+### 17.2 Browser Extension
 - **Extension Type**: Chrome Extension (Manifest V3 recommended)
 - **Communication**: WebSocket or Chrome runtime messaging API
-- **Permissions**: Tabs, activeTab, scripting, storage at minimum
+- **Permissions**: Tabs, activeTab, scripting, storage, possibly microphone (for voice input) at minimum
+- **Tab Access**: Chrome tabs API for retrieving tab groups, titles, favicons, and URLs
 
-### 16.3 Backend Services
+### 17.3 Backend Services
 - **AI/NLP**: Large language model for command interpretation (e.g., OpenAI GPT, Claude)
 - **Task Orchestration**: Backend service to coordinate execution plans
 - **Authentication**: OAuth 2.0 or JWT-based auth
 
 ---
 
-## 17. Accessibility Standards
+## 18. Visual Design System
 
-### 17.1 WCAG Compliance
+### 18.1 Color Palette
+
+**Primary Colors**:
+- **Orange Accent** (#F06423): Primary brand color used for active states, buttons, mentions
+  - Variations: /10 (light backgrounds), /20 (borders), /30 (subtle borders), /80 (hover states)
+- **Slate Gray**: Text and UI elements
+  - slate-300: Borders, inactive icons
+  - slate-400: Placeholder text, secondary text
+  - slate-500: Secondary icons
+  - slate-600: Primary text, icons
+  - slate-700: Emphasized text
+- **White/Transparent**: Glass morphism backgrounds
+  - white/40: Hover states
+  - white/60: Card backgrounds
+  - white/80: Stronger backgrounds
+  - white/90: Nearly opaque backgrounds
+
+**Status Colors**:
+- **Blue** (blue-500, blue-50, blue-600, blue-200): Executing, ongoing tasks
+- **Yellow** (yellow-500, yellow-50, yellow-600, yellow-200): Attention needed, clarification required
+- **Red** (red-500, red-50, red-600, red-200): Errors, critical issues
+- **Green** (green-500, green-50, green-600, green-200): Success, completed states
+- **Gray** (gray-100, gray-600, gray-200): Cancelled, inactive states
+
+### 18.2 Typography
+
+**Font Sizes**:
+- `text-[10px]`: Status pills, substeps, small labels
+- `text-xs`: Thread titles, messages, most UI text (12px)
+- `text-sm`: Headers, emphasized text (14px)
+- `text-base`: Modal titles (16px)
+
+**Font Weights**:
+- `font-medium`: Standard emphasis (500)
+- `font-semibold`: Headers, important text (600)
+- `font-bold`: Badges, strong emphasis (700)
+
+### 18.3 Spacing & Sizing
+
+**Padding Scale**:
+- `p-0.5`: 2px - Tiny buttons
+- `p-1`: 4px - Small buttons
+- `p-1.5`: 6px - Compact elements
+- `p-2`: 8px - Standard buttons
+- `p-2.5`: 10px - Cards, messages
+- `p-3`: 12px - Larger cards
+- `p-4`: 16px - Containers
+- `p-6`: 24px - Modals
+
+**Gap Scale**:
+- `gap-1`: 4px - Tight spacing
+- `gap-1.5`: 6px - Icon-text spacing
+- `gap-2`: 8px - Standard element spacing
+- `gap-2.5`: 10px - Comfortable spacing
+- `gap-3`: 12px - Header spacing
+
+**Size Scale**:
+- Icons: w-3 h-3 (12px), w-3.5 h-3.5 (14px), w-4 h-4 (16px), w-8 h-8 (32px)
+- Dots: w-1.5 h-1.5 (6px), w-2 h-2 (8px), w-[10px] h-[10px] (status dots)
+- Badges: min-w-[12px] h-[12px] (notification count)
+
+### 18.4 Glass Morphism Effect
+
+**Implementation**:
+- Background: Semi-transparent white (bg-white/80, bg-white/60)
+- Backdrop filter: backdrop-blur-sm (4px blur)
+- Borders: Light transparent borders (border-white/20, border-white/40)
+- Shadows: shadow-2xl for elevation
+
+**Usage**:
+- Spotlight modal background
+- Content area backgrounds
+- Settings panel
+- Notification cards
+- Thread list items
+
+### 18.5 Rounded Corners
+
+**Border Radius Scale**:
+- `rounded`: 4px - Small buttons, inputs
+- `rounded-lg`: 8px - Cards, containers
+- `rounded-xl`: 12px - Modals
+- `rounded-full`: 9999px - Pills, badges, dots, circles
+- `rounded-b-lg`: Bottom-only rounding for tabs
+
+### 18.6 Shadows & Elevation
+
+**Shadow Scale**:
+- `shadow-sm`: Subtle elevation for active tabs
+- `shadow-md`: Medium elevation for hover states
+- `shadow-lg`: Menu dropdowns
+- `shadow-2xl`: Modal overlays, notification cards
+
+### 18.7 Transitions & Animations
+
+**Transition Classes**:
+- `transition-colors`: Color changes (hover states)
+- `transition-opacity`: Fade in/out effects
+- `transition-all`: Multiple property transitions
+
+**Animation Durations**:
+- `duration-150`: Fast (150ms) - Voice input bars
+- `duration-200`: Standard (200ms) - Hover effects
+
+**Special Animations**:
+- Voice waveform: Staggered delays (0s, 0.1s, 0.2s, 0.3s, 0.4s)
+- Loader/Spinner: `animate-spin` class
+
+### 18.8 Interactive States
+
+**Hover States**:
+- Buttons: Darker background or text-[#F06423]
+- Thread items: bg-white/60
+- Icons: opacity-80 or text-[#F06423]
+- Menu items: bg-slate-50 or bg-red-50
+
+**Active States**:
+- Tabs: Orange border, text, and shadow
+- Thread items: Orange background tint (bg-[#F06423]/10) with border
+
+**Focus States**:
+- Inputs: ring-1 ring-[#F06423]/20, border-[#F06423]/40
+- Automatic focus on input when Spotlight opens
+
+## 19. Accessibility Standards
+
+### 19.1 WCAG Compliance
 - MUST meet WCAG 2.1 Level AA standards minimum
 - Color contrast ratios of at least 4.5:1 for normal text
 - Focus indicators visible on all interactive elements
 - No reliance on color alone for status indication
 
-### 17.2 Keyboard Navigation
+### 19.2 Keyboard Navigation
 - All functionality accessible via keyboard
 - Logical tab order through interface
 - Escape key for dismissing modals/overlays
 - Enter key for submitting forms
-- Arrow keys for list navigation (optional enhancement)
+- Arrow keys for list navigation (mention dropdown, thread list)
+- Tab key for autocomplete suggestions
 
-### 17.3 Screen Reader Support
+### 19.3 Screen Reader Support
 - Semantic HTML elements (button, nav, main, etc.)
-- ARIA labels for icon-only buttons
-- ARIA live regions for status updates
-- ARIA expanded/collapsed states for expandable sections
+- ARIA labels for icon-only buttons (Voice Input, Stop, Send, Esc)
+- ARIA live regions for status updates (task progress, notifications)
+- ARIA expanded/collapsed states for expandable sections (tab groups)
 - Proper heading hierarchy
+- ContentEditable accessibility considerations (mention pills announced properly)
 
-### 17.4 Reduced Motion
+### 19.4 Reduced Motion
 - Respect `prefers-reduced-motion` media query
 - Disable animations for users with motion sensitivity
 - Instant state changes instead of transitions when reduced motion preferred
 
 ---
 
-## 18. Internationalization (i18n) Considerations
+## 19. Internationalization (i18n) Considerations
 
 *While v2.0 may launch English-only, design decisions should support future localization:*
 
-### 18.1 Text Externalization
+### 19.1 Text Externalization
 - All UI strings should be externalized (not hardcoded)
 - Use i18n library for string management
 - Support for RTL languages in layout design
 
-### 18.2 Date & Time Formatting
+### 19.2 Date & Time Formatting
 - Use locale-aware date/time formatting
 - Respect user's timezone and calendar preferences
 - Support for 12-hour and 24-hour time formats
 
-### 18.3 Natural Language Commands
+### 19.3 Natural Language Commands
 - Command parsing should support multiple languages
 - AI backend trained on multilingual commands
 - Clarification questions in user's language
 
 ---
 
-## 19. Testing Requirements
+## 20. Testing Requirements
 
-### 19.1 Functional Testing
-- All keyboard shortcuts work as specified
+### 20.1 Functional Testing
+
+**Spotlight Interface**:
+- Cmd/Ctrl + Shift + Space toggles Spotlight visibility correctly
 - Spotlight draggability works smoothly and position persists across sessions
 - Spotlight modal cannot be dragged off-screen (stays within bounds)
-- Tab navigation behaves correctly (Suggestions and Chat History tabs)
-- Settings button opens settings page correctly
-- Settings page navigation and all sub-pages function properly
-- Settings changes (profile, theme, blocklist) persist and sync to main app
-- Notification logic triggers appropriately
-- Thread state transitions valid
-- Reply Mode enter/exit functions correctly
-- Progress updates reflect in UI accurately
+- Input field auto-focuses when Spotlight opens
+- Current tab mention auto-inserted when Spotlight opens (not in reply mode)
+- Esc key closes Spotlight (when not in reply mode)
+- Glass morphism visual effects render correctly
 
-### 19.2 Integration Testing
+**Tab Navigation**:
+- Chat History and Settings tabs toggle correctly
+- Only one tab can be active at a time
+- Tab styling (expanded/collapsed) works correctly
+- Notification badge on Chat History tab displays correct count
+- Status dot on Settings tab shows correct connection state
+- Orange top border appears when any tab is active
+- Tab navigation hides in Reply Mode
+
+**Tab Mention System**:
+- @ character triggers mention dropdown
+- Dropdown appears above input with correct positioning
+- Current tab always appears first in dropdown (when matches filter)
+- "Upload a file" option appears second
+- Ungrouped tabs display correctly
+- Tab groups show with expand/collapse functionality
+- Search/filter works across tab titles and URLs
+- Search auto-expands all groups
+- Group color dots display correctly
+- Arrow keys navigate dropdown items
+- Enter/Tab selects highlighted item
+- Escape closes dropdown
+- Mention pills render with favicon and title
+- @Current Tab shows special label (not full title)
+- Remove buttons on mention pills work correctly
+- Mention pills are non-editable
+
+**File Upload**:
+- File upload option appears in mention dropdown
+- Click opens file selector
+- Multiple files can be uploaded
+- File mentions render with blue styling and file size
+- File data stored in uploadedFiles Map
+- Remove buttons work on file mentions
+
+**Voice Input**:
+- Hold Ctrl (Mac) / Alt (Windows) for 250ms activates voice
+- Release key deactivates voice
+- Click icon toggles voice on/off
+- Waveform animation plays when active
+- Bars have correct heights and stagger timing
+- Tooltip shows correct key (platform-specific)
+
+**Inline Autocomplete**:
+- Suggestions appear dynamically based on input state
+- "@Current Tab" suggestion when empty
+- Task suggestion after current tab mention
+- Tab key accepts and inserts suggestion
+- Suggestion advances as user types matching text
+
+**Thread Management**:
+- Thread list displays with correct status dots and pills
+- Search bar filters threads by command, messages, and current action
+- Search clear button (X) works correctly
+- Empty state shows when no search results
+- Search query persists until cleared or navigating back
+- Three-dot menu appears on thread hover
+- Rename option opens modal correctly
+- Rename saves and updates thread title
+- Delete removes thread and clears active state if needed
+- Clicking thread enters Reply Mode automatically
+- Status pill colors match thread status
+- Tab mentions removed from thread titles
+
+**Reply Mode**:
+- Clicking thread automatically enters Reply Mode
+- Tab navigation hidden in Reply Mode
+- Sticky header shows back button, title, and relative timestamp
+- Relative time formats correctly (5m, 2h, 3d, etc.)
+- Tooltip shows full timestamp on hover
+- Back button returns to thread list
+- Escape key exits Reply Mode
+- Search query cleared when returning to list
+- Conversation history displays chronologically
+- User messages styled with orange tint
+- Composite messages styled with white background
+- Tab mentions render as badges in messages
+
+**Progress Visualization**:
+- Major steps show with correct icons (spinner, checkmark, empty circle, X)
+- Substep chevron appears when substeps present
+- Click chevron toggles substep expansion
+- Auto-expand when step executing with substeps
+- Auto-collapse when step completes
+- Substeps display with green checkmarks
+- Live progress updates in last message
+- Historical snapshots frozen in previous messages
+- Final message displays after todo list
+
+**Notification System**:
+- Notifications only visible when Spotlight closed
+- Notifications sorted by timestamp (newest first)
+- Option + ↑/↓ cycles through notifications (infinite loop)
+- Option + R opens Spotlight with notification in Reply Mode
+- Option + P stops executing notification
+- Option + X dismisses all notifications
+- Sidebar controls appear only with multiple notifications
+- Counter displays correctly (X/Y format)
+- Notification card shows tab mentions stripped
+- Stop button visible on executing threads
+- Click card opens thread in Reply Mode
+
+**Settings**:
+- Settings tab opens settings view
+- Connection status displays correctly (green/orange dot)
+- Extension info shows browser and connection state
+- Refresh button clickable
+- "Install Extension" link present
+- "More Settings" opens settings.html in new window/tab
+- User avatar and email display correctly
+
+**Utility Functions**:
+- removeTabMentions() strips mentions correctly
+- renderMessageWithTabBadges() renders badges correctly
+- formatRelativeTime() formats timestamps correctly
+- getSortedNotifications() sorts by timestamp
+- getNotificationCount() calculates badge count correctly
+- getThreadStatusIndicator() returns correct dot/label
+- detectMention() triggers dropdown correctly
+- insertMention() inserts and stores mention data
+- getSuggestionText() generates correct suggestions
+
+### 20.2 Integration Testing
 - Desktop app ↔ Extension communication reliable
 - Extension connection detection accurate
 - Task execution flows end-to-end
 - Error recovery from disconnections
 - Concurrent task execution without conflicts
 
-### 19.3 User Acceptance Testing
+### 20.3 User Acceptance Testing
 - Real users complete sample tasks successfully
 - UI intuitiveness (can users find features without documentation?)
+- Tab mention system usability (do users understand @ syntax?)
+- Inline suggestion helpfulness
 - Notification clarity (do users understand what's happening?)
 - Error messages helpful and actionable
 
-### 19.4 Performance Testing
+### 20.4 Performance Testing
 - UI responsiveness under load (many threads)
 - Memory usage stays within acceptable bounds
 - Notification rendering doesn't cause lag
@@ -1728,18 +2298,22 @@ The system MUST support complex, multi-step tasks similar to these examples:
 
 ---
 
-## 20. Documentation Requirements
+## 21. Documentation Requirements
 
-### 20.1 User Documentation
+### 21.1 User Documentation
 - Getting started guide
 - Feature overview and screenshots
 - Keyboard shortcuts reference
+- Tab mention system guide (@ syntax, how to reference tabs)
+- File upload instructions
+- Voice input usage guide
+- Inline autocomplete explanation
 - Settings page guide (profile setup, theme selection, blocklist management, usage tracking)
 - Sample tasks with expected outcomes
 - Troubleshooting common issues
 - FAQ section
 
-### 20.2 Developer Documentation
+### 21.2 Developer Documentation
 - Architecture overview
 - State management patterns
 - Extension communication protocol
@@ -1748,24 +2322,142 @@ The system MUST support complex, multi-step tasks similar to these examples:
 
 ---
 
-## Appendix A: Glossary
+## Appendix A: Core Utility Functions
 
+The system implements several critical utility functions that handle data transformation and display logic:
+
+### A.1 Text Processing Functions
+
+**`removeTabMentions(text)`**
+- **Purpose**: Removes all @[...] mention patterns from text for clean display
+- **Usage**: Thread titles in Chat History, notification cards, search results
+- **Implementation**: 
+  - Regex: `/@\[([^\]]+)\]/g`
+  - Removes mention patterns and cleans up extra whitespace
+  - Returns plain text without mention syntax
+- **Example**: `"@[Gmail - Inbox] Send email"` → `"Send email"`
+
+**`renderMessageWithTabBadges(message)`**
+- **Purpose**: Converts @[...] mention text to styled badge components in conversation history
+- **Usage**: Reply Mode conversation messages
+- **Implementation**:
+  - Parses text to find @[...] patterns
+  - Creates React components mixing text spans and badge elements
+  - Retrieves tab data from `mentionedTabs` Map for favicon display
+  - Returns JSX with inline badges
+- **Badge styling**: bg-orange-50, border-[#F06423]/30, truncates to 30 chars
+- **Example**: Text with mentions becomes interactive badges with favicons
+
+### A.2 Time Formatting Functions
+
+**`formatRelativeTime(timestamp)`**
+- **Purpose**: Converts absolute timestamps to relative time strings
+- **Returns**: Human-readable relative time (e.g., "5m", "2h", "3d", "1w", "2mo", "1y")
+- **Logic**:
+  - < 60s: "now"
+  - < 60min: "[n]m"
+  - < 24h: "[n]h"
+  - < 7d: "[n]d"
+  - < 4w: "[n]w"
+  - < 12mo: "[n]mo"
+  - >= 12mo: "[n]y"
+- **Usage**: Thread timestamps in Reply Mode header, notification cards
+
+### A.3 State Query Functions
+
+**`getSortedNotifications()`**
+- **Purpose**: Returns notifications sorted by creation time (most recent first)
+- **Implementation**:
+  - Copies `visibleNotifications` array
+  - Sorts by thread `timestamp` property
+  - Most recent threads first (descending order)
+- **Usage**: Notification carousel navigation, keyboard shortcuts
+
+**`getNotificationCount()`**
+- **Purpose**: Calculates badge count for Chat History tab
+- **Returns**: Number of threads requiring attention
+- **Criteria**: Same as notification triggering logic (executing, clarification_needed, or success without dismissal)
+- **Usage**: Red badge on Chat History tab
+
+**`getThreadStatusIndicator(status, notificationDismissed, threadId)`**
+- **Purpose**: Determines status dot visibility and label for thread list items
+- **Returns**: Object with `{ showDot: boolean, color: string, label: string }`
+- **Logic**:
+  - Executing (not dismissed): blue dot, "Ongoing"
+  - Clarification needed (not dismissed): yellow dot, "Attention Needed"
+  - Error (not dismissed): red dot, "Error"
+  - Success (not dismissed): green dot, "Completed"
+  - Cancelled: no dot, "Cancelled"
+- **Usage**: Thread list rendering
+
+### A.4 Input Processing Functions
+
+**`detectMention(text, cursorPos)`**
+- **Purpose**: Detects @ character and triggers mention dropdown
+- **Logic**:
+  - Searches backward from cursor for @ symbol
+  - Checks if @ is at start or preceded by whitespace
+  - Extracts query between @ and cursor
+  - Only triggers if no spaces in query
+  - Updates mention state and dropdown position
+- **Usage**: ContentEditable input change handling
+
+**`insertMention(tab)`**
+- **Purpose**: Inserts tab mention at cursor position in input
+- **Implementation**:
+  - Calculates text before/after mention
+  - Inserts `@[tabTitle]` format
+  - Stores tab data in `mentionedTabs` Map
+  - Closes dropdown and refocuses input
+- **Usage**: Tab selection from mention dropdown
+
+**`getSuggestionText()`**
+- **Purpose**: Generates inline autocomplete suggestion dynamically
+- **Logic**:
+  - Reply mode: "Reply to Composite"
+  - No input: "@Current Tab"
+  - Has current tab: "Send reminder emails for today"
+  - Default: "@Current Tab"
+- **Usage**: Placeholder/suggestion display in input field
+
+## Appendix B: Glossary
+
+- **Active Thread**: Thread currently being viewed or interacted with (tracked via `activeThreadId`)
 - **Atomic Substep**: Individual action within a major step (e.g., "Click search bar")
+- **Carousel**: Notification display system showing one notification at a time with cycling controls
 - **Chat History**: List of all task threads with their conversation history
 - **Clarification**: When system pauses execution to ask user a question
 - **Composite**: The AI assistant name/brand
+- **ContentEditable**: Rich text input field (div, not textarea) that allows inline styled elements like mention pills
+- **Expanded Steps**: Set tracking which major steps have their substeps visible (format: `${threadId}-${stepId}`)
+- **formatRelativeTime**: Utility function converting timestamps to relative time strings (e.g., "5m", "2h")
+- **getSortedNotifications**: Utility function returning notifications sorted by creation time
+- **getThreadStatusIndicator**: Utility function determining status dot and label for threads
 - **Major Step**: High-level phase of task execution (e.g., "Extract contact information")
-- **Notification**: Pop-up card showing task status when Spotlight closed
+- **Mention**: Reference to a browser tab or file using @ syntax (e.g., "@[Tab Title]")
+- **Mention Dropdown**: Menu that appears when typing @ to select tabs or files
+- **Mention Pill**: Non-editable inline element showing a mentioned tab or file with icon and remove button
+- **mentionedTabs**: Map storing tab data keyed by tab title for rendering pills
+- **Notification Carousel**: System for displaying notifications one at a time with navigation controls
+- **Notification Index**: Current position in the notification carousel (0-based, sorted by timestamp)
 - **Progress Snapshot**: Frozen copy of majorSteps at a point in time, stored with conversation messages
-- **Reply Mode**: UI state where user is viewing and replying to specific thread
+- **removeTabMentions**: Utility function that strips @[...] patterns from text for clean display
+- **renderMessageWithTabBadges**: Utility function that converts mention text to styled badge components
+- **Reply Mode**: UI state where user is viewing and replying to specific thread (auto-enabled when clicking thread)
 - **Settings Page**: Standalone full-page interface for managing user profile, preferences, and system configuration (separate from Spotlight)
-- **Spotlight**: Main command interface modal
+- **Spotlight**: Main command interface modal (draggable, positioned via `modalPosition` state)
+- **Status Pill**: Color-coded badge showing thread status in thread list (orange/red/green/gray)
+- **Tab Group**: Collection of related browser tabs with a name and color (can be expanded/collapsed)
 - **Thread**: Single task execution instance with conversation history
-- **To-Do List**: Visual representation of major steps and progress
+- **Thread Management Menu**: Dropdown menu with Rename and Delete options for threads
+- **Thread Search**: Search functionality in Chat History that filters threads by command, messages, and current action
+- **Thread View Timestamp**: Timestamp tracking when user last viewed each thread (for notification suppression)
+- **To-Do List**: Visual representation of major steps and progress with collapsible substeps
+- **Voice Input**: Voice command feature activated by holding Ctrl (Mac, 250ms delay) or Alt (Windows, 250ms delay)
 
 ---
 
-## Appendix B: Design Principles
+## Appendix C: Design Principles
 
 1. **Transparency**: Users should always know what Composite is doing
 2. **Control**: Users can stop, pause, or redirect execution at any time
@@ -1777,7 +2469,7 @@ The system MUST support complex, multi-step tasks similar to these examples:
 
 ---
 
-## Appendix C: Non-Functional Requirements Summary
+## Appendix D: Non-Functional Requirements Summary
 
 - **Reliability**: 99.5% uptime for backend services, graceful degradation on connection loss
 - **Performance**: < 200ms UI response time for user actions, < 1s to show task plan

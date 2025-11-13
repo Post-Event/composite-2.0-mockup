@@ -41,6 +41,18 @@ const ChevronRight = ({ className }) => (
   </svg>
 );
 
+const ChevronUp = ({ className }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <polyline points="18 15 12 9 6 15" />
+  </svg>
+);
+
+const ChevronDown = ({ className }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <polyline points="6 9 12 15 18 9" />
+  </svg>
+);
+
 const Command = ({ className }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path d="M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3H6a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3h12a3 3 0 0 0 3-3 3 3 0 0 0-3-3z" />
@@ -82,6 +94,19 @@ const MoreVertical = ({ className }) => (
     <circle cx="12" cy="12" r="1" />
     <circle cx="12" cy="5" r="1" />
     <circle cx="12" cy="19" r="1" />
+  </svg>
+);
+
+const Edit2 = ({ className }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+  </svg>
+);
+
+const Trash = ({ className }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="3 6 5 6 21 6" />
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
   </svg>
 );
 
@@ -141,6 +166,13 @@ const CornerUpLeft = ({ className }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
     <polyline points="9 14 4 9 9 4" />
     <path d="M20 20v-7a4 4 0 0 0-4-4H4" />
+  </svg>
+);
+
+const CornerDownLeft = ({ className }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="9 10 4 15 9 20" />
+    <path d="M20 4v7a4 4 0 0 1-4 4H4" />
   </svg>
 );
 
@@ -218,6 +250,39 @@ const CompositeLogoMark = ({ className }) => (
   </svg>
 );
 
+const VoiceInput = ({ isActive, onClick, className }) => {
+  const waves = [
+    { activeHeight: 16, inactiveHeight: 6, delay: 0 },
+    { activeHeight: 20, inactiveHeight: 10, delay: 0.1 },
+    { activeHeight: 24, inactiveHeight: 14, delay: 0.2 },
+    { activeHeight: 20, inactiveHeight: 10, delay: 0.3 },
+    { activeHeight: 16, inactiveHeight: 6, delay: 0.4 },
+  ];
+
+  return (
+    <button
+      onClick={onClick}
+      onMouseDown={onClick}
+      className={`${className} flex items-center justify-center gap-0.5 cursor-pointer transition-all duration-200 hover:opacity-80`}
+      title="Voice Input (Hold Ctrl)" // Hold Ctrl on Mac, Alt on Windows
+    >
+      {waves.map((wave, index) => (
+        <div
+          key={index}
+          className={`rounded-full bg-[#F06423] transition-all duration-150 flex-shrink-0 ${isActive ? 'voice-wave' : ''}`}
+          style={{
+            width: '2px',
+            minWidth: '2px',
+            maxWidth: '2px',
+            height: isActive ? `${wave.activeHeight}px` : `${wave.inactiveHeight}px`,
+            animationDelay: isActive ? `${wave.delay}s` : undefined,
+          }}
+        />
+      ))}
+    </button>
+  );
+};
+
 const ArrowUpCircle = ({ className }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
     <polyline points="16 12 12 8 8 12" />
@@ -234,6 +299,109 @@ const ExternalLink = ({ className }) => (
 );
 
 export default function BrowserCopilot() {
+  // Utility function to remove tab mentions from text
+  const removeTabMentions = (text) => {
+    if (!text) return text;
+    // Remove all @[...] patterns and clean up extra spaces
+    return text.replace(/@\[([^\]]+)\]/g, '').replace(/\s+/g, ' ').trim();
+  };
+
+  // Utility function to format relative time (e.g., "1m", "2h", "3d", "4w")
+  const formatRelativeTime = (timestamp) => {
+    const now = new Date();
+    const diffMs = now - timestamp;
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHour / 24);
+    const diffWeek = Math.floor(diffDay / 7);
+    const diffMonth = Math.floor(diffDay / 30);
+    const diffYear = Math.floor(diffDay / 365);
+
+    if (diffSec < 60) return 'now';
+    if (diffMin < 60) return `${diffMin}m`;
+    if (diffHour < 24) return `${diffHour}h`;
+    if (diffDay < 7) return `${diffDay}d`;
+    if (diffWeek < 4) return `${diffWeek}w`;
+    if (diffMonth < 12) return `${diffMonth}mo`;
+    return `${diffYear}y`;
+  };
+
+  // Utility function to render message with tab mentions as badges
+  const renderMessageWithTabBadges = (message) => {
+    if (!message) return null;
+    
+    // Split message by tab mentions
+    const parts = [];
+    let lastIndex = 0;
+    const mentionRegex = /@\[([^\]]+)\]/g;
+    let match;
+    
+    while ((match = mentionRegex.exec(message)) !== null) {
+      // Add text before the mention
+      if (match.index > lastIndex) {
+        parts.push({
+          type: 'text',
+          content: message.slice(lastIndex, match.index)
+        });
+      }
+      
+      // Add the mention as a badge
+      const tabTitle = match[1];
+      const tabData = mentionedTabs.get(tabTitle);
+      
+      parts.push({
+        type: 'tab',
+        content: tabTitle,
+        favicon: tabData?.favicon
+      });
+      
+      lastIndex = match.index + match[0].length;
+    }
+    
+    // Add remaining text
+    if (lastIndex < message.length) {
+      parts.push({
+        type: 'text',
+        content: message.slice(lastIndex)
+      });
+    }
+    
+    // If no mentions found, return plain text
+    if (parts.length === 0) {
+      return <span>{message}</span>;
+    }
+    
+    // Render parts
+    return (
+      <span>
+        {parts.map((part, idx) => {
+          if (part.type === 'text') {
+            return <span key={idx}>{part.content}</span>;
+          } else if (part.type === 'tab') {
+            return (
+              <span 
+                key={idx}
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-orange-50 border border-[#F06423]/30 rounded text-xs font-medium text-[#F06423] whitespace-nowrap align-middle mx-0.5"
+              >
+                {part.favicon && (
+                  <img 
+                    src={part.favicon} 
+                    alt="" 
+                    className="w-3 h-3 flex-shrink-0" 
+                    onError={(e) => e.target.style.display = 'none'}
+                  />
+                )}
+                <span>@{part.content.length > 30 ? part.content.slice(0, 30) + '...' : part.content}</span>
+              </span>
+            );
+          }
+          return null;
+        })}
+      </span>
+    );
+  };
+
   const [showSpotlight, setShowSpotlight] = useState(true);
   const [input, setInput] = useState('');
   const [threads, setThreads] = useState([]);
@@ -245,18 +413,23 @@ export default function BrowserCopilot() {
   const [isReplyMode, setIsReplyMode] = useState(false); // true when replying to active thread
   const [replyThreadId, setReplyThreadId] = useState(null); // ID of thread being replied to
   const [visibleNotifications, setVisibleNotifications] = useState([]); // IDs of threads with visible notifications
-  const [expandedNotificationGroup, setExpandedNotificationGroup] = useState(false); // Whether notification stack is expanded
+  const [currentNotificationIndex, setCurrentNotificationIndex] = useState(0); // Current index in the notification cycle
   const [lastNotificationAction, setLastNotificationAction] = useState({}); // Track last action timestamp per thread to show new notifications
   const [threadViewTimestamps, setThreadViewTimestamps] = useState({}); // Track when each thread was last viewed in chat history
   const [dismissedOngoingTasks, setDismissedOngoingTasks] = useState(new Set()); // Track which ongoing tasks have been dismissed
   const [dismissedAttentionNeeded, setDismissedAttentionNeeded] = useState(new Set()); // Track which attention needed threads have been dismissed
-  const [waitingForNotificationNumber, setWaitingForNotificationNumber] = useState(false); // Track if waiting for number after Cmd+R
-  const [waitingForStopNumber, setWaitingForStopNumber] = useState(false); // Track if waiting for number after Cmd+P
+  const [isVoiceActive, setIsVoiceActive] = useState(false); // Track if voice input is active (Ctrl on Mac, Alt on Windows)
+  const voiceKeyTimerRef = useRef(null); // Timer for voice key hold detection
+  const voiceActivatedRef = useRef(false); // Track if voice was activated
   const spotlightRef = useRef(null);
   const spotlightModalRef = useRef(null);
   const [modalPosition, setModalPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [openMenuThreadId, setOpenMenuThreadId] = useState(null); // Track which thread has menu open
+  const [renamingThreadId, setRenamingThreadId] = useState(null); // Track which thread is being renamed
+  const [renameValue, setRenameValue] = useState(''); // Temporary value for rename input
+  const [threadSearchQuery, setThreadSearchQuery] = useState(''); // Search query for filtering threads
   
   // Tab mention state
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
@@ -311,6 +484,9 @@ export default function BrowserCopilot() {
   
   // Track which tab groups are expanded
   const [expandedGroups, setExpandedGroups] = useState(new Set());
+
+  // Track which major steps have expanded substeps (by threadId-stepId)
+  const [expandedSteps, setExpandedSteps] = useState(new Set());
 
   // Drag handlers for modal
   const handleMouseDown = useCallback((e) => {
@@ -861,122 +1037,216 @@ export default function BrowserCopilot() {
     );
   }, []);
 
+  // Toggle expansion state for a major step's substeps
+  const toggleStepExpansion = useCallback((threadId, stepId) => {
+    setExpandedSteps((prev) => {
+      const key = `${threadId}-${stepId}`;
+      const newSet = new Set(prev);
+      if (newSet.has(key)) {
+        newSet.delete(key);
+      } else {
+        newSet.add(key);
+      }
+      return newSet;
+    });
+  }, []);
+
+  // Auto-expand executing steps and auto-collapse completed steps
+  useEffect(() => {
+    threads.forEach((thread) => {
+      if (thread.majorSteps) {
+        thread.majorSteps.forEach((step) => {
+          const key = `${thread.id}-${step.id}`;
+          
+          // Auto-expand if step is currently executing and has substeps
+          if (step.status === 'executing' && step.completedAtomicSteps && step.completedAtomicSteps.length > 0) {
+            setExpandedSteps((prev) => {
+              const newSet = new Set(prev);
+              newSet.add(key);
+              return newSet;
+            });
+          }
+          
+          // Auto-collapse if step just completed
+          if (step.status === 'completed') {
+            setExpandedSteps((prev) => {
+              const newSet = new Set(prev);
+              newSet.delete(key);
+              return newSet;
+            });
+          }
+        });
+      }
+    });
+  }, [threads]);
+
+  // Sort notifications by creation time (most recent first)
+  const getSortedNotifications = useCallback(() => {
+    return [...visibleNotifications].sort((aId, bId) => {
+      const threadA = threads.find(t => t.id === aId);
+      const threadB = threads.find(t => t.id === bId);
+      
+      if (!threadA || !threadB) return 0;
+      
+      // Sort by timestamp (creation time) - most recent first
+      return (threadB.timestamp?.getTime() || 0) - (threadA.timestamp?.getTime() || 0);
+    });
+  }, [visibleNotifications, threads]);
+
+  // Helper function to open spotlight with a specific thread
+  const openSpotlightWithThread = useCallback((threadId) => {
+    setShowSpotlight(true);
+    setShowThreadsModal(true);
+    setReplyThreadId(threadId);
+    setActiveThreadId(threadId);
+    setShowSettingsModal(false);
+    
+    const thread = threads.find(t => t.id === threadId);
+    
+    // Track that this thread has been viewed (like macOS Messages)
+    setThreadViewTimestamps(prev => ({
+      ...prev,
+      [threadId]: Date.now()
+    }));
+    // Hide the notification for this thread
+    setVisibleNotifications(prev => prev.filter(id => id !== threadId));
+    
+    // Remove from dismissed sets if present (in case user manually opens a previously dismissed notification)
+    setDismissedOngoingTasks(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(threadId);
+      return newSet;
+    });
+    
+    setDismissedAttentionNeeded(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(threadId);
+      return newSet;
+    });
+  }, [threads]);
+
+  // Dismiss all notifications
+  const dismissAllNotifications = useCallback(() => {
+    // Add all executing threads to dismissedOngoingTasks
+    const ongoingThreadIds = threads
+      .filter(t => t.status === 'executing')
+      .map(t => t.id);
+    
+    if (ongoingThreadIds.length > 0) {
+      setDismissedOngoingTasks(prev => new Set([...prev, ...ongoingThreadIds]));
+    }
+    
+    // Add all attention needed threads to dismissedAttentionNeeded
+    const attentionNeededThreadIds = threads
+      .filter(t => t.status === 'clarification_needed')
+      .map(t => t.id);
+    
+    if (attentionNeededThreadIds.length > 0) {
+      setDismissedAttentionNeeded(prev => new Set([...prev, ...attentionNeededThreadIds]));
+    }
+    
+    // Mark completed threads as dismissed
+    setThreads(prev => prev.map(t => 
+      t.status === 'success' 
+        ? { ...t, notificationDismissed: true }
+        : t
+    ));
+    
+    // Clear all notifications
+    setVisibleNotifications([]);
+    setCurrentNotificationIndex(0);
+  }, [threads]);
+
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // If waiting for notification number after Cmd+R
-      if (waitingForNotificationNumber && !e.metaKey) {
-        const numberKey = e.key;
-        if (numberKey >= '1' && numberKey <= '9') {
-          e.preventDefault();
-          const index = parseInt(numberKey) - 1;
-          const sortedNotifications = getSortedNotifications();
-          if (index < sortedNotifications.length) {
-            openSpotlightWithThread(sortedNotifications[index]);
-          }
-        }
-        setWaitingForNotificationNumber(false);
-        return;
+      // Debug: Log key events when Alt is pressed (remove in production)
+      if (e.altKey && !showSpotlight) {
+        console.log('Alt key pressed with:', { key: e.key, code: e.code, showSpotlight, visibleNotifications: visibleNotifications.length });
       }
       
-      // If waiting for stop number after Cmd+P
-      if (waitingForStopNumber && !e.metaKey) {
-        const numberKey = e.key;
-        if (numberKey >= '1' && numberKey <= '9') {
-          e.preventDefault();
-          const index = parseInt(numberKey) - 1;
-          const sortedNotifications = getSortedNotifications();
-          // Use the overall notification index, but only stop if it's executing
-          if (index < sortedNotifications.length) {
-            const threadId = sortedNotifications[index];
-            const thread = threads.find(t => t.id === threadId);
-            if (thread && thread.status === 'executing') {
-              handleStopExecution(threadId);
-            }
+      // Option + Up/Down: Cycle through notifications (when spotlight is closed and notifications are visible)
+      if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && !showSpotlight && visibleNotifications.length > 0) {
+        e.preventDefault();
+        const sortedNotifications = getSortedNotifications();
+        if (sortedNotifications.length === 0) return;
+        
+        if (e.key === 'ArrowUp') {
+          // Cycle backwards (infinite loop)
+          setCurrentNotificationIndex(prev => 
+            prev === 0 ? sortedNotifications.length - 1 : prev - 1
+          );
+        } else {
+          // Cycle forwards (infinite loop)
+          setCurrentNotificationIndex(prev => 
+            (prev + 1) % sortedNotifications.length
+          );
+        }
+      }
+      // Option + R: Reply to current notification
+      // Use e.code to handle special characters on macOS (Option+R = ®, etc.)
+      else if (e.altKey && (e.key === 'r' || e.key === 'R' || e.code === 'KeyR') && !showSpotlight && visibleNotifications.length > 0) {
+        e.preventDefault();
+        const sortedNotifications = getSortedNotifications();
+        if (sortedNotifications.length > 0) {
+          const threadId = sortedNotifications[currentNotificationIndex];
+          openSpotlightWithThread(threadId);
+        }
+      }
+      // Option + P: Stop/Pause current notification (if it's executing)
+      // Use e.code to handle special characters on macOS (Option+P = π, etc.)
+      else if (e.altKey && (e.key === 'p' || e.key === 'P' || e.code === 'KeyP') && !showSpotlight && visibleNotifications.length > 0) {
+        e.preventDefault();
+        const sortedNotifications = getSortedNotifications();
+        if (sortedNotifications.length > 0) {
+          const threadId = sortedNotifications[currentNotificationIndex];
+          const thread = threads.find(t => t.id === threadId);
+          if (thread && thread.status === 'executing') {
+            handleStopExecution(threadId);
           }
         }
-        setWaitingForStopNumber(false);
-        return;
       }
-      
+      // Option + X: Dismiss all notifications
+      // Use e.code to handle special characters on macOS (Option+X = ≈, etc.)
+      else if (e.altKey && (e.key === 'x' || e.key === 'X' || e.code === 'KeyX') && !showSpotlight && visibleNotifications.length > 0) {
+        e.preventDefault();
+        dismissAllNotifications();
+      }
       // Cmd + Shift + Space: Toggle spotlight
-      if (e.metaKey && e.shiftKey && e.key === ' ') {
+      else if (e.metaKey && e.shiftKey && e.key === ' ') {
         e.preventDefault();
         setShowSpotlight(!showSpotlight);
         setInput('');
         setIsReplyMode(false);
         setReplyThreadId(null);
+        setActiveThreadId(null); // Clear activeThreadId when closing spotlight
         hasInitializedInput.current = false; // Reset to allow re-initialization on next open
       }
-      // Cmd + R: Enter reply mode or wait for number
-      else if (e.metaKey && e.key === 'r') {
+      // Cmd + R: Enter reply mode (only when in spotlight)
+      else if (e.metaKey && e.key === 'r' && showSpotlight && !isReplyMode && replyThreadId) {
         e.preventDefault();
-        if (!showSpotlight && visibleNotifications.length > 0) {
-          // If spotlight is closed and there are notifications visible
-          if (visibleNotifications.length === 1) {
-            // Single notification - reply immediately
-            openSpotlightWithThread(visibleNotifications[0]);
-          } else {
-            // Multiple notifications - wait for number key or reply to first after timeout
-            setWaitingForNotificationNumber(true);
-            // Auto-reply to first notification after 1 second if no number pressed
-            setTimeout(() => {
-              setWaitingForNotificationNumber(prev => {
-                if (prev) {
-                  const sortedNotifications = getSortedNotifications();
-                  if (sortedNotifications.length > 0) {
-                    openSpotlightWithThread(sortedNotifications[0]);
-                  }
-                  return false;
-                }
-                return prev;
-              });
-            }, 1000);
-          }
-        } else if (showSpotlight && !isReplyMode && replyThreadId) {
-          // If in spotlight but not reply mode, enter reply mode for the current thread
-          setIsReplyMode(true);
-          setInput('');
-        }
+        // If in spotlight but not reply mode, enter reply mode for the current thread
+        setIsReplyMode(true);
+        setInput('');
       }
-      // Cmd + P: Stop execution
-      else if (e.metaKey && e.key === 'p') {
+      // Cmd + P: Stop execution (only when in spotlight with active thread)
+      else if (e.metaKey && e.key === 'p' && showSpotlight && activeThreadId) {
         e.preventDefault();
-        if (!showSpotlight && visibleNotifications.length > 0) {
-          // If spotlight is closed and there are notifications visible
-          const sortedNotifications = getSortedNotifications();
-          const executingThreads = sortedNotifications.filter(threadId => {
-            const thread = threads.find(t => t.id === threadId);
-            return thread && thread.status === 'executing';
-          });
-          
-          if (executingThreads.length === 1) {
-            // Single executing thread - stop immediately
-            handleStopExecution(executingThreads[0]);
-          } else if (executingThreads.length > 1) {
-            // Multiple executing threads - wait for number key or stop first after timeout
-            setWaitingForStopNumber(true);
-            // Auto-stop first executing thread after 1 second if no number pressed
-            setTimeout(() => {
-              setWaitingForStopNumber(prev => {
-                if (prev) {
-                  if (executingThreads.length > 0) {
-                    handleStopExecution(executingThreads[0]);
-                  }
-                  return false;
-                }
-                return prev;
-              });
-            }, 1000);
-          }
-        } else if (showSpotlight && activeThreadId) {
-          // If in spotlight, stop the active thread
-          handleStopExecution(activeThreadId);
-        }
+        // If in spotlight, stop the active thread
+        handleStopExecution(activeThreadId);
       }
       // Spotlight-specific shortcuts (only when spotlight is open and not in reply mode)
       else if (showSpotlight && !isReplyMode) {
+        // Escape: Close spotlight
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          setShowSpotlight(false);
+          setInput('');
+          setShowThreadsModal(false);
+          setShowSettingsModal(false);
+          setActiveThreadId(null);
+        }
         // Cmd + B: Toggle Chat History
-        if (e.metaKey && e.key === 'b') {
+        else if (e.metaKey && e.key === 'b') {
           e.preventDefault();
           setShowThreadsModal(!showThreadsModal);
           setShowSettingsModal(false);
@@ -991,7 +1261,7 @@ export default function BrowserCopilot() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showSpotlight, isReplyMode, activeThreadId, replyThreadId, threads, visibleNotifications, handleStopExecution, showThreadsModal, showSettingsModal, waitingForNotificationNumber, waitingForStopNumber]);
+  }, [showSpotlight, isReplyMode, activeThreadId, replyThreadId, threads, visibleNotifications, handleStopExecution, showThreadsModal, showSettingsModal, currentNotificationIndex, getSortedNotifications, openSpotlightWithThread, dismissAllNotifications]);
 
   useEffect(() => {
     if (showSpotlight && spotlightRef.current) {
@@ -1005,9 +1275,12 @@ export default function BrowserCopilot() {
 
     const handleEscapeKey = (e) => {
       if (e.key === 'Escape') {
-        // Exit reply mode and go back to thread list
+        e.preventDefault();
+        e.stopPropagation();
+        // Exit reply mode and go back to thread list, don't close spotlight
         setIsReplyMode(false);
         setReplyThreadId(null);
+        setActiveThreadId(null); // Clear activeThreadId when exiting reply mode
         setInput('');
       }
     };
@@ -1015,6 +1288,58 @@ export default function BrowserCopilot() {
     window.addEventListener('keydown', handleEscapeKey);
     return () => window.removeEventListener('keydown', handleEscapeKey);
   }, [isReplyMode, replyThreadId]);
+
+  // Handle Ctrl (Mac) / Alt (Windows) for voice input
+  useEffect(() => {
+    if (!showSpotlight) return;
+
+    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+
+    const handleKeyDown = (e) => {
+      // Use Ctrl on Mac, Alt on Windows/Linux
+      const isVoiceKey = isMac ? e.ctrlKey : e.altKey;
+      
+      // Start timer on voice key press (only if not repeating)
+      if (isVoiceKey && !e.repeat && !voiceKeyTimerRef.current) {
+        // Set a timer to activate voice input after 250ms
+        voiceKeyTimerRef.current = setTimeout(() => {
+          voiceActivatedRef.current = true;
+          setIsVoiceActive(true);
+          voiceKeyTimerRef.current = null;
+        }, 250);
+      }
+    };
+
+    const handleKeyUp = (e) => {
+      // Check for Ctrl on Mac, Alt on Windows/Linux
+      const isVoiceKey = (isMac && e.key === 'Control') || (!isMac && e.key === 'Alt');
+      
+      if (isVoiceKey) {
+        // Clear the timer if voice key released before 250ms
+        if (voiceKeyTimerRef.current) {
+          clearTimeout(voiceKeyTimerRef.current);
+          voiceKeyTimerRef.current = null;
+          voiceActivatedRef.current = false;
+        } else if (voiceActivatedRef.current) {
+          // Voice was activated, so deactivate it
+          setIsVoiceActive(false);
+          voiceActivatedRef.current = false;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      // Clean up timer on unmount
+      if (voiceKeyTimerRef.current) {
+        clearTimeout(voiceKeyTimerRef.current);
+        voiceKeyTimerRef.current = null;
+      }
+    };
+  }, [showSpotlight]);
 
   // Automatically enter reply mode when a thread is selected in Chat History
   useEffect(() => {
@@ -1037,6 +1362,11 @@ export default function BrowserCopilot() {
 
   // Top suggestion text for placeholder - dynamically computed based on input
   const getSuggestionText = () => {
+    // In reply mode, show "Reply to Composite" placeholder
+    if (isReplyMode) {
+      return 'Reply to Composite';
+    }
+    
     const currentTabMention = `@[${currentTab.title}]`;
     const hasCurrentTab = input.includes(currentTabMention);
     
@@ -1045,35 +1375,13 @@ export default function BrowserCopilot() {
     }
     
     if (hasCurrentTab || input.trim() === currentTabMention.trim()) {
-      return 'Send reminder emails for today\'s reference check calls';
+      return 'Send reminder emails for today'; // 31 characters, fits with "tab" badge
     }
     
     return '@Current Tab';
   };
   
   const suggestionText = getSuggestionText();
-
-  // Helper function to open spotlight with a specific thread
-  const openSpotlightWithThread = (threadId) => {
-    setShowSpotlight(true);
-    setShowThreadsModal(true);
-    setReplyThreadId(threadId);
-    setActiveThreadId(threadId);
-    setShowSettingsModal(false);
-    // Track that this thread has been viewed (like macOS Messages)
-    setThreadViewTimestamps(prev => ({
-      ...prev,
-      [threadId]: Date.now()
-    }));
-    // Hide the notification for this thread
-    setVisibleNotifications(prev => prev.filter(id => id !== threadId));
-    // Mark as notification dismissed if completed
-    setThreads(prev => prev.map(t => 
-      t.id === threadId && t.status === 'success' 
-        ? { ...t, notificationDismissed: true }
-        : t
-    ));
-  };
 
   // Clean up dismissed ongoing tasks when they change status from 'executing'
   useEffect(() => {
@@ -1122,9 +1430,11 @@ export default function BrowserCopilot() {
       // 3. It's not already visible
       // 4. The thread hasn't been viewed since the last action (like macOS Messages)
       // 5. For ongoing tasks, don't show if it's been dismissed (treat entire ongoing process as one notification)
+      // 6. Thread is not currently being viewed in the spotlight
       const needsAttention = 
         thread.status === 'executing' || 
         thread.status === 'clarification_needed' || 
+        thread.status === 'error' ||
         (thread.status === 'success' && !thread.notificationDismissed);
       
       const isNewAction = 
@@ -1142,7 +1452,13 @@ export default function BrowserCopilot() {
       // For attention needed (clarification_needed status), don't show notification if it's been dismissed
       const isAttentionNeededAndDismissed = thread.status === 'clarification_needed' && dismissedAttentionNeeded.has(thread.id);
       
-      if (needsAttention && isNewAction && notAlreadyVisible && !hasBeenViewedSinceAction && !isOngoingAndDismissed && !isAttentionNeededAndDismissed) {
+      // For error status, don't show notification if it's been dismissed
+      const isErrorAndDismissed = thread.status === 'error' && dismissedAttentionNeeded.has(thread.id);
+      
+      // Don't show notification if the thread is currently being viewed
+      const isCurrentlyViewing = showSpotlight && showThreadsModal && activeThreadId === thread.id;
+      
+      if (needsAttention && isNewAction && notAlreadyVisible && !hasBeenViewedSinceAction && !isOngoingAndDismissed && !isAttentionNeededAndDismissed && !isErrorAndDismissed && !isCurrentlyViewing) {
         setVisibleNotifications(prev => [...prev, thread.id]);
         setLastNotificationAction(prev => ({
           ...prev,
@@ -1150,7 +1466,75 @@ export default function BrowserCopilot() {
         }));
       }
     });
-  }, [threads, lastNotificationAction, visibleNotifications, threadViewTimestamps, dismissedOngoingTasks, dismissedAttentionNeeded]);
+  }, [threads, lastNotificationAction, visibleNotifications, threadViewTimestamps, dismissedOngoingTasks, dismissedAttentionNeeded, showSpotlight, showThreadsModal, activeThreadId]);
+
+  // Reset notification index when notifications change
+  useEffect(() => {
+    const sortedNotifications = getSortedNotifications();
+    if (sortedNotifications.length > 0 && currentNotificationIndex >= sortedNotifications.length) {
+      // If current index is out of bounds, reset to 0
+      setCurrentNotificationIndex(0);
+    }
+  }, [visibleNotifications, currentNotificationIndex]);
+
+  // Auto-dismiss notifications for currently viewed thread when status changes
+  // Only trigger when actively viewing a thread in reply mode, not just in the thread list
+  useEffect(() => {
+    if (showSpotlight && showThreadsModal && isReplyMode && replyThreadId && activeThreadId === replyThreadId) {
+      const activeThread = threads.find(t => t.id === activeThreadId);
+      if (activeThread) {
+        // Update view timestamp to mark as viewed
+        setThreadViewTimestamps(prev => ({
+          ...prev,
+          [activeThreadId]: Date.now()
+        }));
+        
+        // Mark as dismissed based on status
+        if (activeThread.status === 'executing') {
+          setDismissedOngoingTasks(prev => {
+            if (!prev.has(activeThreadId)) {
+              return new Set([...prev, activeThreadId]);
+            }
+            return prev;
+          });
+        } else if (activeThread.status === 'clarification_needed') {
+          setDismissedAttentionNeeded(prev => {
+            if (!prev.has(activeThreadId)) {
+              return new Set([...prev, activeThreadId]);
+            }
+            return prev;
+          });
+        } else if (activeThread.status === 'error') {
+          setDismissedAttentionNeeded(prev => {
+            if (!prev.has(activeThreadId)) {
+              return new Set([...prev, activeThreadId]);
+            }
+            return prev;
+          });
+        } else if (activeThread.status === 'success' && !activeThread.notificationDismissed) {
+          setThreads(prev => prev.map(t => 
+            t.id === activeThreadId 
+              ? { ...t, notificationDismissed: true }
+              : t
+          ));
+        }
+      }
+    }
+  }, [showSpotlight, showThreadsModal, isReplyMode, replyThreadId, activeThreadId, threads]);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (openMenuThreadId !== null) {
+        setOpenMenuThreadId(null);
+      }
+    };
+    
+    if (openMenuThreadId !== null) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [openMenuThreadId]);
 
   const handleExecute = (command) => {
     if (!command.trim()) return;
@@ -1179,11 +1563,11 @@ export default function BrowserCopilot() {
     };
 
     setThreads([newThread, ...threads]);
-    setActiveThreadId(newThread.id);
     setShowSpotlight(false);
     setInput('');
     setIsReplyMode(false);
     setReplyThreadId(null);
+    setActiveThreadId(null); // Clear activeThreadId when closing spotlight
 
     simulateTaskExecution(newThread.id, command);
   };
@@ -1887,17 +2271,28 @@ export default function BrowserCopilot() {
   };
 
   const handleRespondToClarification = (threadId, response) => {
-    // First, stop execution (which freezes progress by saving snapshot)
-    handleStopExecution(threadId);
-    
-    // Then add user reply message to conversation history
+    // First, save snapshot on the last message and stop execution, then add new user message
     setThreads((prev) =>
       prev.map((t) => {
         if (t.id === threadId) {
+          // Save snapshot on the current last message before adding new message
+          const previousMessages = [...(t.conversationHistory || [])];
+          if (previousMessages.length > 0) {
+            const lastIdx = previousMessages.length - 1;
+            previousMessages[lastIdx] = {
+              ...previousMessages[lastIdx],
+              progressSnapshot: t.majorSteps ? JSON.parse(JSON.stringify(t.majorSteps)) : null
+            };
+          }
+          
+          // Add new user message with null snapshot (will be populated later)
           return {
             ...t,
+            status: 'cancelled',
+            currentAction: 'Task stopped by user',
+            lastActionTime: Date.now(),
             conversationHistory: [
-              ...(t.conversationHistory || []),
+              ...previousMessages,
               { role: 'user', message: response, timestamp: new Date(), progressSnapshot: null }
             ],
           };
@@ -2023,9 +2418,9 @@ export default function BrowserCopilot() {
   const getStatusIcon = (status) => {
     switch (status) {
       case 'executing':
-        return <Loader className="w-4 h-4 text-[#F06423]" />;
+        return <Loader className="w-4 h-4 text-blue-500" />;
       case 'clarification_needed':
-        return <AlertCircle className="w-4 h-4 text-[#F06423]" />;
+        return <AlertCircle className="w-4 h-4 text-yellow-500" />;
       case 'success':
         return <CheckCircle className="w-4 h-4 text-green-500" />;
       case 'error':
@@ -2050,9 +2445,15 @@ export default function BrowserCopilot() {
         return false;
       }
       
+      // Don't count dismissed error threads
+      if (t.status === 'error' && dismissedAttentionNeeded.has(t.id)) {
+        return false;
+      }
+      
       return (
         t.status === 'executing' || 
         t.status === 'clarification_needed' || 
+        t.status === 'error' ||
         (t.status === 'success' && !t.notificationDismissed)
       );
     }).length;
@@ -2062,10 +2463,21 @@ export default function BrowserCopilot() {
   const dismissNotification = (threadId) => {
     const thread = threads.find(t => t.id === threadId);
     
-    setVisibleNotifications(prev => prev.filter(id => id !== threadId));
-    if (expandedNotificationGroup) {
-      setExpandedNotificationGroup(false);
-    }
+    setVisibleNotifications(prev => {
+      const newNotifications = prev.filter(id => id !== threadId);
+      // Reset index if dismissing current notification and there are remaining notifications
+      if (newNotifications.length > 0) {
+        const sortedNotifications = getSortedNotifications();
+        const currentThreadId = sortedNotifications[currentNotificationIndex];
+        if (currentThreadId === threadId) {
+          // Reset to 0 if we dismissed the current one
+          setCurrentNotificationIndex(0);
+        }
+      } else {
+        setCurrentNotificationIndex(0);
+      }
+      return newNotifications;
+    });
     
     // If it's an ongoing task, add it to dismissedOngoingTasks
     if (thread && thread.status === 'executing') {
@@ -2077,39 +2489,14 @@ export default function BrowserCopilot() {
       setDismissedAttentionNeeded(prev => new Set([...prev, threadId]));
     }
     
+    // If it's an error thread, add it to dismissedAttentionNeeded
+    if (thread && thread.status === 'error') {
+      setDismissedAttentionNeeded(prev => new Set([...prev, threadId]));
+    }
+    
     // Mark the notification as dismissed for completed threads
     setThreads(prev => prev.map(t => 
       t.id === threadId && t.status === 'success' 
-        ? { ...t, notificationDismissed: true }
-        : t
-    ));
-  };
-
-  // Dismiss all notifications
-  const dismissAllNotifications = () => {
-    // Add all executing threads to dismissedOngoingTasks
-    const ongoingThreadIds = threads
-      .filter(t => t.status === 'executing')
-      .map(t => t.id);
-    
-    if (ongoingThreadIds.length > 0) {
-      setDismissedOngoingTasks(prev => new Set([...prev, ...ongoingThreadIds]));
-    }
-    
-    // Add all attention needed threads to dismissedAttentionNeeded
-    const attentionNeededThreadIds = threads
-      .filter(t => t.status === 'clarification_needed')
-      .map(t => t.id);
-    
-    if (attentionNeededThreadIds.length > 0) {
-      setDismissedAttentionNeeded(prev => new Set([...prev, ...attentionNeededThreadIds]));
-    }
-    
-    setVisibleNotifications([]);
-    setExpandedNotificationGroup(false);
-    // Mark all completed threads as having their notifications dismissed
-    setThreads(prev => prev.map(t => 
-      t.status === 'success' 
         ? { ...t, notificationDismissed: true }
         : t
     ));
@@ -2120,11 +2507,15 @@ export default function BrowserCopilot() {
     if (status === 'executing') {
       // Don't show dot if the ongoing task has been dismissed
       const isDismissed = dismissedOngoingTasks.has(threadId);
-      return { color: 'bg-[#F06423]', label: 'Ongoing', showDot: !isDismissed };
+      return { color: 'bg-blue-500', label: 'Ongoing', showDot: !isDismissed };
     } else if (status === 'clarification_needed') {
       // Don't show dot if the attention needed has been dismissed
       const isDismissed = dismissedAttentionNeeded.has(threadId);
-      return { color: 'bg-red-500', label: 'Attention Needed', showDot: !isDismissed };
+      return { color: 'bg-yellow-500', label: 'Attention Needed', showDot: !isDismissed };
+    } else if (status === 'error') {
+      // Don't show dot if the error has been dismissed
+      const isDismissed = dismissedAttentionNeeded.has(threadId);
+      return { color: 'bg-red-500', label: 'Error', showDot: !isDismissed };
     } else if (status === 'success') {
       // If notification dismissed, no dot; otherwise green dot
       return { 
@@ -2149,237 +2540,154 @@ export default function BrowserCopilot() {
     return colors[index % colors.length];
   };
 
-  // Sort notifications by priority: error > action required > ongoing > completed
-  const getSortedNotifications = () => {
-    return [...visibleNotifications].sort((aId, bId) => {
-      const threadA = threads.find(t => t.id === aId);
-      const threadB = threads.find(t => t.id === bId);
-      
-      if (!threadA || !threadB) return 0;
-      
-      // Define priority values (lower = higher priority)
-      const getPriority = (status) => {
-        if (status === 'error') return 1; // Error - highest priority
-        if (status === 'clarification_needed') return 2; // Action required - high priority
-        if (status === 'executing') return 3; // Ongoing - medium priority
-        if (status === 'success') return 4; // Completed - low priority
-        return 5; // Other statuses (e.g., cancelled) - lowest priority
-      };
-      
-      const priorityA = getPriority(threadA.status);
-      const priorityB = getPriority(threadB.status);
-      
-      // Sort by priority, then by lastActionTime (most recent first) for same priority
-      if (priorityA !== priorityB) {
-        return priorityA - priorityB;
-      }
-      return (threadB.lastActionTime || 0) - (threadA.lastActionTime || 0);
-    });
-  };
-
   return (
     <div className="fixed inset-0 font-sans bg-gray-900 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: 'url("/google-bg.png")' }}>
       {/* Background overlay */}
 
-      {/* Notification Stack - macOS Style - Only show when Spotlight is closed */}
+      {/* Notification Carousel - Only show when Spotlight is closed */}
       {visibleNotifications.length > 0 && !showSpotlight && (
         <div className="fixed top-6 right-6 w-[380px] z-50">
-          {expandedNotificationGroup ? (
-            /* Expanded Stack - Show all notifications */
-            <div className="space-y-2">
-              {(() => {
-                const sortedNotifications = getSortedNotifications();
+          {(() => {
+            const sortedNotifications = getSortedNotifications();
+            const currentThread = threads.find(t => t.id === sortedNotifications[currentNotificationIndex]);
+            if (!currentThread) return null;
+            
+            const hasMultiple = visibleNotifications.length > 1;
+            
+            const handleCycleUp = () => {
+              setCurrentNotificationIndex(prev => 
+                prev === 0 ? sortedNotifications.length - 1 : prev - 1
+              );
+            };
+            
+            const handleCycleDown = () => {
+              setCurrentNotificationIndex(prev => 
+                (prev + 1) % sortedNotifications.length
+              );
+            };
+            
+            return (
+              <div className="relative">
+                {/* Stacked background cards - show when 2+ notifications */}
+                {visibleNotifications.length >= 2 && (
+                  <div className="absolute top-1 -right-1 w-full h-full glass-notification rounded-xl border border-white/20 -z-10"></div>
+                )}
+                {visibleNotifications.length >= 3 && (
+                  <div className="absolute top-2 -right-2 w-full h-full glass-notification rounded-xl border border-white/20 -z-20"></div>
+                )}
                 
-                return sortedNotifications.map((threadId, index) => {
-                  const thread = threads.find(t => t.id === threadId);
-                  if (!thread) return null;
-                  
-                  // Tooltip uses overall notification index (aligns with Reply shortcuts)
-                  const stopTooltip = `Stop execution (⌘P${index > 0 ? index + 1 : ''})`;
-                  
-                  return (
-                    <div
-                      key={threadId}
-                      className="relative group glass-notification rounded-xl shadow-2xl border border-white/20 overflow-hidden cursor-pointer hover:shadow-3xl transition-shadow"
-                      onClick={() => openSpotlightWithThread(threadId)}
+                {/* Main notification card */}
+                <div className="flex glass-notification rounded-xl shadow-2xl border border-white/20 overflow-hidden">
+                {/* Sidebar controls - Only show when there are multiple notifications */}
+                {hasMultiple && (
+                  <div className="flex flex-col border-r border-white/10">
+                    {/* Dismiss all */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        dismissAllNotifications();
+                      }}
+                      className="px-1.5 py-1 hover:bg-white/20 transition-colors border-b border-white/10"
+                      title="Dismiss all notifications (⌥X)"
                     >
-                      {/* Thread Header */}
-                      <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/10 bg-white/10">
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <CompositeLogoMark className="w-4 h-4 text-[#F06423] flex-shrink-0" />
-                          <span className="text-xs text-[#111111] truncate font-medium">{thread.command}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          {/* Stop button for executing threads */}
-                          {thread.status === 'executing' && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleStopExecution(threadId);
-                              }}
-                              className="p-1 hover:bg-[#F8F7F4] rounded transition-colors flex-shrink-0"
-                              title={stopTooltip}
-                            >
-                              <Square className="w-4 h-4 text-slate-600" />
-                            </button>
-                          )}
+                      <Ban className="w-3.5 h-3.5 text-red-600" />
+                    </button>
+                    
+                    {/* Up arrow */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCycleUp();
+                      }}
+                      className="px-1.5 py-1 hover:bg-white/20 transition-colors border-b border-white/10"
+                      title="Previous notification (⌥↑)"
+                    >
+                      <ChevronUp className="w-3.5 h-3.5 text-slate-600" />
+                    </button>
+                    
+                    {/* Down arrow */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCycleDown();
+                      }}
+                      className="px-1.5 py-1 hover:bg-white/20 transition-colors border-b border-white/10"
+                      title="Next notification (⌥↓)"
+                    >
+                      <ChevronDown className="w-3.5 h-3.5 text-slate-600" />
+                    </button>
+                    
+                    {/* Counter */}
+                    <div className="px-1.5 py-1 flex items-center justify-center">
+                      <span className="text-[10px] font-medium text-slate-600">
+                        {currentNotificationIndex + 1}/{sortedNotifications.length}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Main notification content */}
+                <div
+                  className="flex-1 relative group cursor-pointer"
+                  onClick={() => openSpotlightWithThread(currentThread.id)}
+                >
+                  {/* Thread Header */}
+                  <div className="flex items-center justify-between px-3 py-1.5 border-b border-white/10 bg-white/10">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <CompositeLogoMark className="w-3.5 h-3.5 text-[#F06423] flex-shrink-0" />
+                      <span className="text-xs text-[#111111] truncate font-medium">{removeTabMentions(currentThread.command)}</span>
+                    </div>
+                    <div className="flex items-center gap-0.5">
+                      {/* Stop button for executing threads */}
+                      {currentThread.status === 'executing' && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            dismissNotification(threadId);
+                            handleStopExecution(currentThread.id);
                           }}
                           className="p-1 hover:bg-[#F8F7F4] rounded transition-colors flex-shrink-0"
-                          title="Dismiss notification"
+                          title="Stop execution (⌥P)"
                         >
-                          <X className="w-4 h-4 text-slate-600" />
+                          <Square className="w-3.5 h-3.5 text-slate-600" />
                         </button>
-                      </div>
-                    </div>
-
-                    {/* Thread Status - Minimal */}
-                    <div className="px-4 py-3">
-                      <div className="flex items-start gap-2">
-                        {getStatusIcon(thread.status)}
-                        <p className="text-xs text-slate-700 leading-relaxed flex-1">
-                          {thread.currentAction}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* macOS-style Reply button - bottom right corner on hover - Shows numbered shortcut in expanded view */}
-                    <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                      <div className="px-2.5 py-1.5 bg-orange-100 backdrop-blur-sm rounded text-[11px] text-slate-700 font-medium shadow-md border border-orange-200">
-                        Reply ⌘R{index > 0 ? `${index + 1}` : ''}
-                      </div>
-                    </div>
-                  </div>
-                  );
-                });
-              })()}
-              
-              {/* Collapse and Dismiss All Controls - Only show when there are multiple notifications */}
-              {visibleNotifications.length > 1 && (
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setExpandedNotificationGroup(false)}
-                    className="flex-1 px-3 py-2 glass-button border border-white/20 rounded-lg text-xs text-[#111111] hover:bg-white/60 transition-colors font-medium"
-                  >
-                    Collapse
-                  </button>
-                  <button
-                    onClick={dismissAllNotifications}
-                    className="flex-1 px-3 py-2 glass-button border border-white/20 rounded-lg text-xs text-red-600 hover:bg-red-50 transition-colors font-medium"
-                  >
-                    Dismiss All
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : (
-            /* Collapsed Stack - Show multiple notifications stacked visually like macOS */
-            <div className="relative">
-              {(() => {
-                const sortedNotifications = getSortedNotifications();
-                const topThread = threads.find(t => t.id === sortedNotifications[0]);
-                if (!topThread) return null;
-                
-                const hasStack = visibleNotifications.length > 1;
-                // Show 1 edge for 2 notifications, 2 edges for 3+ notifications (macOS style)
-                const stackEdgeCount = visibleNotifications.length === 2 ? 1 : visibleNotifications.length >= 3 ? 2 : 0;
-                
-                return (
-                  <div className="relative">
-                    {/* Stack edge indicators (visual effect only) - positioned behind and below */}
-                    {stackEdgeCount > 0 && Array.from({ length: stackEdgeCount }).map((_, index) => {
-                      const layer = index + 1; // 1, 2
-                      
-                      return (
-                        <div
-                          key={`stack-edge-${layer}`}
-                          className="absolute left-0 right-0 glass-notification rounded-b-xl border-b border-x border-white/30"
-                          style={{
-                            bottom: `${-4 * layer}px`, // Position below the main card
-                            height: '16px',
-                            zIndex: 10 - layer, // Behind the main card
-                          }}
-                        />
-                      );
-                    })}
-                    
-                    {/* Top notification - fully visible and interactive */}
-                    <div
-                      className="relative group glass-notification rounded-xl border border-white/20 overflow-hidden cursor-pointer hover:border-white/30 transition-all"
-                      style={{ 
-                        zIndex: 10,
-                        boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.15)',
-                      }}
-                      onClick={(e) => {
-                        if (hasStack) {
-                          // If stacked, expand first
-                          setExpandedNotificationGroup(true);
-                        } else {
-                          // If only 1 notification, open directly
-                          openSpotlightWithThread(topThread.id);
-                        }
-                      }}
-                    >
-                      {/* Thread Header */}
-                      <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/10 bg-white/10">
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <CompositeLogoMark className="w-4 h-4 text-[#F06423] flex-shrink-0" />
-                          <span className="text-xs text-[#111111] truncate font-medium">{topThread.command}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          {/* Stop button for executing threads */}
-                          {topThread.status === 'executing' && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleStopExecution(topThread.id);
-                              }}
-                              className="p-1 hover:bg-[#F8F7F4] rounded transition-colors flex-shrink-0"
-                              title="Stop execution (⌘P)"
-                            >
-                              <Square className="w-4 h-4 text-slate-600" />
-                            </button>
-                          )}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              dismissNotification(topThread.id);
-                            }}
-                            className="p-1 hover:bg-[#F8F7F4] rounded transition-colors flex-shrink-0"
-                            title="Dismiss notification"
-                          >
-                            <X className="w-4 h-4 text-slate-600" />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Thread Status - Minimal */}
-                      <div className="px-4 py-3">
-                        <div className="flex items-start gap-2">
-                          {getStatusIcon(topThread.status)}
-                          <p className="text-xs text-slate-700 leading-relaxed flex-1">
-                            {topThread.currentAction}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* macOS-style Reply button - bottom right corner on hover - ONLY show for single notification */}
-                      {!hasStack && (
-                        <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                          <div className="px-2.5 py-1.5 bg-orange-100 backdrop-blur-sm rounded text-[11px] text-slate-700 font-medium shadow-md border border-orange-200">
-                            Reply ⌘R
-                          </div>
-                        </div>
                       )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          dismissNotification(currentThread.id);
+                        }}
+                        className="p-1 hover:bg-[#F8F7F4] rounded transition-colors flex-shrink-0"
+                        title="Dismiss notification"
+                      >
+                        <X className="w-3.5 h-3.5 text-slate-600" />
+                      </button>
                     </div>
                   </div>
-                );
-              })()}
-            </div>
-          )}
+
+                  {/* Thread Status - Minimal */}
+                  <div className="px-3 py-2">
+                    <div className="flex items-start gap-2">
+                      {getStatusIcon(currentThread.status)}
+                      <p className="text-xs text-slate-700 leading-snug flex-1">
+                        {currentThread.currentAction}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* macOS-style Reply icon button - bottom right corner on hover */}
+                  <div 
+                    className="absolute bottom-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-auto"
+                    title="Reply (⌥R)"
+                  >
+                    <div className="p-1.5 bg-orange-100 backdrop-blur-sm rounded text-slate-700 shadow-md border border-orange-200">
+                      <CornerDownLeft className="w-3.5 h-3.5" />
+                    </div>
+                  </div>
+                </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -2397,7 +2705,7 @@ export default function BrowserCopilot() {
           >
             {/* Content Area - only show if there's content to display */}
             {(isReplyMode || showThreadsModal || showSettingsModal) && (
-              <div className="max-h-96 glass-content border-b border-white/10 flex flex-col">
+              <div className="glass-content border-b border-white/10 flex flex-col" style={{ height: showSettingsModal ? 'auto' : isReplyMode ? '320px' : '200px' }}>
               {isReplyMode && replyThreadId ? (
                 /* Reply Mode - Show thread details */
                 (() => {
@@ -2406,36 +2714,39 @@ export default function BrowserCopilot() {
                   
                   return (
                     <>
-                      {/* Sticky Header */}
-                      <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm border-b border-white/20 p-4 space-y-3">
-                        {/* Back button */}
-                        <button
-                          onClick={() => {
-                            setReplyThreadId(null);
-                            setIsReplyMode(false);
-                          }}
-                          className="flex items-center gap-2 text-xs text-slate-600 hover:text-[#111111] transition-colors"
-                        >
-                          <CornerUpLeft className="w-3 h-3" />
-                          Chat History
-                          <span className="ml-auto px-1.5 py-0.5 text-[10px] bg-slate-200 text-slate-600 rounded font-medium">Esc</span>
-                        </button>
-                        
-                        {/* Thread Title */}
-                        <div className="pb-2 border-b border-white/10">
-                          <div className="flex items-center gap-2">
-                            <CompositeLogoMark className="w-4 h-4 text-[#F06423] flex-shrink-0" />
-                            <h3 className="text-sm font-semibold text-[#111111]">{selectedThread.command}</h3>
-                          </div>
-                          <p className="text-[10px] text-slate-500 mt-1">
-                            {selectedThread.timestamp.toLocaleString()}
-                          </p>
+                      {/* Sticky Header - Minimized single line */}
+                      <div className="sticky top-0 z-10 bg-gradient-to-b from-orange-50/90 to-white/80 backdrop-blur-sm border-b-2 border-orange-200/40 px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          {/* Back button - icon only with tooltip */}
+                          <button
+                            onClick={() => {
+                              setReplyThreadId(null);
+                              setIsReplyMode(false);
+                              setActiveThreadId(null); // Clear activeThreadId when going back to thread list
+                              setThreadSearchQuery(''); // Clear search when going back
+                            }}
+                            className="flex items-center text-slate-600 hover:text-[#F06423] transition-colors"
+                            title="Chat History (Esc)"
+                          >
+                            <CornerUpLeft className="w-4 h-4" />
+                          </button>
+                          
+                          {/* Thread Title - centered */}
+                          <h3 className="text-sm font-semibold text-[#111111] flex-1 truncate text-center">{removeTabMentions(selectedThread.command)}</h3>
+                          
+                          {/* Relative timestamp with full timestamp tooltip */}
+                          <span 
+                            className="text-xs text-slate-600 flex-shrink-0 font-medium"
+                            title={selectedThread.timestamp.toLocaleString()}
+                          >
+                            {formatRelativeTime(selectedThread.timestamp)}
+                          </span>
                         </div>
                       </div>
                       
                       {/* Scrollable Conversation History */}
-                      <div className="p-4 pt-0 overflow-y-auto">
-                      <div className="space-y-2">
+                      <div className="flex-1 overflow-y-auto">
+                      <div className="p-4 space-y-2">
                         {selectedThread.conversationHistory && selectedThread.conversationHistory.map((msg, idx) => {
                           const isLastMessage = idx === selectedThread.conversationHistory.length - 1;
                           
@@ -2448,7 +2759,7 @@ export default function BrowserCopilot() {
                                     ? 'bg-[#F06423]/10 border border-[#F06423]/20 ml-4'
                                     : 'bg-white/60 border border-white/20 mr-4'
                                 }`}>
-                                  <p className="text-slate-700 leading-relaxed">{msg.message}</p>
+                                  <p className="text-slate-700 leading-relaxed">{renderMessageWithTabBadges(msg.message)}</p>
                                 </div>
                               )}
                               
@@ -2456,38 +2767,58 @@ export default function BrowserCopilot() {
                               {selectedThread.majorSteps && (
                                 <div className="bg-white/60 border border-white/20 rounded-lg p-2.5 mr-4">
                                   <div className="space-y-2">
-                                    {(isLastMessage ? selectedThread.majorSteps : (msg.progressSnapshot || [])).map((step, stepIdx) => (
-                                      <div key={step.id} className="space-y-1">
-                                        <div className="flex items-start gap-2">
-                                          {step.status === 'completed' ? (
-                                            <CheckCircle className="w-3 h-3 text-green-500 flex-shrink-0 mt-0.5" />
-                                          ) : step.status === 'executing' && isLastMessage && selectedThread.status === 'executing' ? (
-                                            <Loader className="w-3 h-3 text-[#F06423] flex-shrink-0 mt-0.5" />
-                                          ) : step.status === 'pending' && isLastMessage && selectedThread.status === 'executing' ? (
-                                            <div className="w-3 h-3 rounded-full border-2 border-slate-300 flex-shrink-0 mt-0.5" />
-                                          ) : (
-                                            <X className="w-3 h-3 text-slate-400 flex-shrink-0 mt-0.5" />
-                                          )}
-                                          <div className="flex-1">
-                                            <p className={`text-[10px] font-semibold ${step.status === 'completed' || (isLastMessage && selectedThread.status === 'executing') ? 'text-slate-700' : 'text-slate-400 line-through'}`}>
-                                              {stepIdx + 1}. {step.title}
-                                            </p>
-                                            
-                                            {/* Show substeps if any are completed */}
-                                            {step.completedAtomicSteps && step.completedAtomicSteps.length > 0 && (
-                                              <ul className="space-y-0.5 mt-1.5 pl-2">
-                                                {step.completedAtomicSteps.map((atomicStep, atomicIdx) => (
-                                                  <li key={atomicIdx} className="text-[10px] text-slate-600 flex items-start gap-1.5">
-                                                    <span className="text-green-500 flex-shrink-0">✓</span>
-                                                    <span className="flex-1">{atomicStep}</span>
-                                                  </li>
-                                                ))}
-                                              </ul>
+                                    {(isLastMessage ? selectedThread.majorSteps : (msg.progressSnapshot || [])).map((step, stepIdx) => {
+                                      const stepKey = `${selectedThread.id}-${step.id}`;
+                                      const isExpanded = expandedSteps.has(stepKey);
+                                      const hasSubsteps = step.completedAtomicSteps && step.completedAtomicSteps.length > 0;
+                                      
+                                      return (
+                                        <div key={step.id} className="space-y-1">
+                                          <div className="flex items-start gap-2">
+                                            {step.status === 'completed' ? (
+                                              <CheckCircle className="w-3 h-3 text-green-500 flex-shrink-0 mt-0.5" />
+                                            ) : step.status === 'executing' && isLastMessage && selectedThread.status === 'executing' ? (
+                                              <Loader className="w-3 h-3 text-blue-500 flex-shrink-0 mt-0.5" />
+                                            ) : step.status === 'pending' && isLastMessage && selectedThread.status === 'executing' ? (
+                                              <div className="w-3 h-3 rounded-full border-2 border-slate-300 flex-shrink-0 mt-0.5" />
+                                            ) : (
+                                              <X className="w-3 h-3 text-slate-400 flex-shrink-0 mt-0.5" />
                                             )}
+                                            <div className="flex-1">
+                                              <div className="flex items-center gap-1">
+                                                {hasSubsteps && (
+                                                  <button
+                                                    onClick={() => toggleStepExpansion(selectedThread.id, step.id)}
+                                                    className="p-0.5 hover:bg-white/50 rounded transition-colors"
+                                                  >
+                                                    {isExpanded ? (
+                                                      <ChevronDown className="w-2.5 h-2.5 text-slate-500" />
+                                                    ) : (
+                                                      <ChevronRight className="w-2.5 h-2.5 text-slate-500" />
+                                                    )}
+                                                  </button>
+                                                )}
+                                                <p className={`text-[10px] font-semibold ${step.status === 'completed' || (isLastMessage && selectedThread.status === 'executing') ? 'text-slate-700' : 'text-slate-400 line-through'}`}>
+                                                  {stepIdx + 1}. {step.title}
+                                                </p>
+                                              </div>
+                                              
+                                              {/* Show substeps if any are completed and step is expanded */}
+                                              {hasSubsteps && isExpanded && (
+                                                <ul className="space-y-0.5 mt-1.5 pl-2">
+                                                  {step.completedAtomicSteps.map((atomicStep, atomicIdx) => (
+                                                    <li key={atomicIdx} className="text-[10px] text-slate-600 flex items-start gap-1.5">
+                                                      <span className="text-green-500 flex-shrink-0">✓</span>
+                                                      <span className="flex-1">{atomicStep}</span>
+                                                    </li>
+                                                  ))}
+                                                </ul>
+                                              )}
+                                            </div>
                                           </div>
                                         </div>
-                                      </div>
-                                    ))}
+                                      );
+                                    })}
                                   </div>
                                 </div>
                               )}
@@ -2517,10 +2848,8 @@ export default function BrowserCopilot() {
                 /* Threads View - Full Conversation History */
                 <>
                   {threads.length === 0 ? (
-                    <div className="p-4">
-                    <div className="text-center py-8">
+                    <div className="flex-1 flex items-center justify-center">
                       <p className="text-xs text-slate-500">No active threads</p>
-                    </div>
                     </div>
                   ) : replyThreadId ? (
                     /* Show detailed view of selected thread - Reply mode is default */
@@ -2530,36 +2859,39 @@ export default function BrowserCopilot() {
                       
                       return (
                         <>
-                          {/* Sticky Header */}
-                          <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm border-b border-white/20 p-4 space-y-3">
-                            {/* Back button */}
-                            <button
-                              onClick={() => {
-                                setReplyThreadId(null);
-                                setIsReplyMode(false);
-                              }}
-                              className="flex items-center gap-2 text-xs text-slate-600 hover:text-[#111111] transition-colors"
-                            >
-                              <CornerUpLeft className="w-3 h-3" />
-                              Chat History
-                              <span className="ml-auto px-1.5 py-0.5 text-[10px] bg-slate-200 text-slate-600 rounded font-medium">Esc</span>
-                            </button>
-                            
-                            {/* Thread Title */}
-                            <div className="pb-2 border-b border-white/10">
-                              <div className="flex items-center gap-2">
-                                <CompositeLogoMark className="w-4 h-4 text-[#F06423] flex-shrink-0" />
-                                <h3 className="text-sm font-semibold text-[#111111]">{selectedThread.command}</h3>
-                              </div>
-                              <p className="text-[10px] text-slate-500 mt-1">
-                                {selectedThread.timestamp.toLocaleString()}
-                              </p>
+                          {/* Sticky Header - Minimized single line */}
+                          <div className="sticky top-0 z-10 bg-gradient-to-b from-orange-50/90 to-white/80 backdrop-blur-sm border-b-2 border-orange-200/40 px-4 py-3">
+                            <div className="flex items-center gap-3">
+                              {/* Back button - icon only with tooltip */}
+                              <button
+                                onClick={() => {
+                                  setReplyThreadId(null);
+                                  setIsReplyMode(false);
+                                  setActiveThreadId(null); // Clear activeThreadId when going back to thread list
+                                  setThreadSearchQuery(''); // Clear search when going back
+                                }}
+                                className="flex items-center text-slate-600 hover:text-[#F06423] transition-colors"
+                                title="Chat History (Esc)"
+                              >
+                                <CornerUpLeft className="w-4 h-4" />
+                              </button>
+                              
+                              {/* Thread Title - centered */}
+                              <h3 className="text-sm font-semibold text-[#111111] flex-1 truncate text-center">{removeTabMentions(selectedThread.command)}</h3>
+                              
+                              {/* Relative timestamp with full timestamp tooltip */}
+                              <span 
+                                className="text-xs text-slate-600 flex-shrink-0 font-medium"
+                                title={selectedThread.timestamp.toLocaleString()}
+                              >
+                                {formatRelativeTime(selectedThread.timestamp)}
+                              </span>
                             </div>
                           </div>
                           
                           {/* Scrollable Conversation History */}
-                          <div className="p-4 pt-0 overflow-y-auto">
-                          <div className="space-y-2">
+                          <div className="flex-1 overflow-y-auto">
+                          <div className="p-4 space-y-2">
                             {selectedThread.conversationHistory && selectedThread.conversationHistory.map((msg, idx) => {
                               const isLastMessage = idx === selectedThread.conversationHistory.length - 1;
                               
@@ -2571,45 +2903,65 @@ export default function BrowserCopilot() {
                                       ? 'bg-[#F06423]/10 border border-[#F06423]/20 ml-4'
                                       : 'bg-white/60 border border-white/20 mr-4'
                                   }`}>
-                                    <p className="text-slate-700 leading-relaxed">{msg.message}</p>
+                                    <p className="text-slate-700 leading-relaxed">{renderMessageWithTabBadges(msg.message)}</p>
                                   </div>
                                   
                                   {/* Show LIVE todolist for last message, or frozen snapshot for previous messages */}
                                   {selectedThread.majorSteps && (
                                     <div className="bg-white/60 border border-white/20 rounded-lg p-2.5 mr-4">
                                       <div className="space-y-2">
-                                        {(isLastMessage ? selectedThread.majorSteps : (msg.progressSnapshot || [])).map((step, stepIdx) => (
-                                          <div key={step.id} className="space-y-1">
-                                            <div className="flex items-start gap-2">
-                                              {step.status === 'completed' ? (
-                                                <CheckCircle className="w-3 h-3 text-green-500 flex-shrink-0 mt-0.5" />
-                                              ) : step.status === 'executing' && isLastMessage && selectedThread.status === 'executing' ? (
-                                                <Loader className="w-3 h-3 text-[#F06423] flex-shrink-0 mt-0.5" />
-                                              ) : step.status === 'pending' && isLastMessage && selectedThread.status === 'executing' ? (
-                                                <div className="w-3 h-3 rounded-full border-2 border-slate-300 flex-shrink-0 mt-0.5" />
-                                              ) : (
-                                                <X className="w-3 h-3 text-slate-400 flex-shrink-0 mt-0.5" />
-                                              )}
-                                              <div className="flex-1">
-                                                <p className={`text-[10px] font-semibold ${step.status === 'completed' || (isLastMessage && selectedThread.status === 'executing') ? 'text-slate-700' : 'text-slate-400 line-through'}`}>
-                                                  {stepIdx + 1}. {step.title}
-                                                </p>
-                                                
-                                                {/* Show substeps if any are completed */}
-                                                {step.completedAtomicSteps && step.completedAtomicSteps.length > 0 && (
-                                                  <ul className="space-y-0.5 mt-1.5 pl-2">
-                                                    {step.completedAtomicSteps.map((atomicStep, atomicIdx) => (
-                                                      <li key={atomicIdx} className="text-[10px] text-slate-600 flex items-start gap-1.5">
-                                                        <span className="text-green-500 flex-shrink-0">✓</span>
-                                                        <span className="flex-1">{atomicStep}</span>
-                                                      </li>
-                                                    ))}
-                                                  </ul>
+                                        {(isLastMessage ? selectedThread.majorSteps : (msg.progressSnapshot || [])).map((step, stepIdx) => {
+                                          const stepKey = `${selectedThread.id}-${step.id}`;
+                                          const isExpanded = expandedSteps.has(stepKey);
+                                          const hasSubsteps = step.completedAtomicSteps && step.completedAtomicSteps.length > 0;
+                                          
+                                          return (
+                                            <div key={step.id} className="space-y-1">
+                                              <div className="flex items-start gap-2">
+                                                {step.status === 'completed' ? (
+                                                  <CheckCircle className="w-3 h-3 text-green-500 flex-shrink-0 mt-0.5" />
+                                                ) : step.status === 'executing' && isLastMessage && selectedThread.status === 'executing' ? (
+                                                  <Loader className="w-3 h-3 text-blue-500 flex-shrink-0 mt-0.5" />
+                                                ) : step.status === 'pending' && isLastMessage && selectedThread.status === 'executing' ? (
+                                                  <div className="w-3 h-3 rounded-full border-2 border-slate-300 flex-shrink-0 mt-0.5" />
+                                                ) : (
+                                                  <X className="w-3 h-3 text-slate-400 flex-shrink-0 mt-0.5" />
                                                 )}
+                                                <div className="flex-1">
+                                                  <div className="flex items-center gap-1">
+                                                    {hasSubsteps && (
+                                                      <button
+                                                        onClick={() => toggleStepExpansion(selectedThread.id, step.id)}
+                                                        className="p-0.5 hover:bg-white/50 rounded transition-colors"
+                                                      >
+                                                        {isExpanded ? (
+                                                          <ChevronDown className="w-2.5 h-2.5 text-slate-500" />
+                                                        ) : (
+                                                          <ChevronRight className="w-2.5 h-2.5 text-slate-500" />
+                                                        )}
+                                                      </button>
+                                                    )}
+                                                    <p className={`text-[10px] font-semibold ${step.status === 'completed' || (isLastMessage && selectedThread.status === 'executing') ? 'text-slate-700' : 'text-slate-400 line-through'}`}>
+                                                      {stepIdx + 1}. {step.title}
+                                                    </p>
+                                                  </div>
+                                                  
+                                                  {/* Show substeps if any are completed and step is expanded */}
+                                                  {hasSubsteps && isExpanded && (
+                                                    <ul className="space-y-0.5 mt-1.5 pl-2">
+                                                      {step.completedAtomicSteps.map((atomicStep, atomicIdx) => (
+                                                        <li key={atomicIdx} className="text-[10px] text-slate-600 flex items-start gap-1.5">
+                                                          <span className="text-green-500 flex-shrink-0">✓</span>
+                                                          <span className="flex-1">{atomicStep}</span>
+                                                        </li>
+                                                      ))}
+                                                    </ul>
+                                                  )}
+                                                </div>
                                               </div>
                                             </div>
-                                          </div>
-                                        ))}
+                                          );
+                                        })}
                                       </div>
                                     </div>
                                   )}
@@ -2637,52 +2989,171 @@ export default function BrowserCopilot() {
                     })()
                   ) : (
                     /* Thread List View */
-                    <div className="p-4">
-                    {threads.map((thread, idx) => {
+                    <>
+                    {/* Search Bar */}
+                    <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm border-b border-white/20 px-2 py-1.5">
+                      <div className="relative">
+                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                        <input
+                          type="text"
+                          value={threadSearchQuery}
+                          onChange={(e) => setThreadSearchQuery(e.target.value)}
+                          placeholder="Search threads..."
+                          className="w-full pl-7 pr-7 py-1 text-xs bg-white/60 border border-white/40 rounded-md focus:outline-none focus:ring-1 focus:ring-[#F06423]/20 focus:border-[#F06423]/40 placeholder-slate-400"
+                        />
+                        {threadSearchQuery && (
+                          <button
+                            onClick={() => setThreadSearchQuery('')}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="flex-1 overflow-y-auto">
+                    <div className="px-2 py-1 space-y-0.5">
+                    {(() => {
+                      const filteredThreads = threads.filter(thread => {
+                        if (!threadSearchQuery.trim()) return true;
+                        const searchLower = threadSearchQuery.toLowerCase();
+                        // Search in thread command/title
+                        if (thread.command.toLowerCase().includes(searchLower)) return true;
+                        // Search in conversation history messages
+                        if (thread.conversationHistory && thread.conversationHistory.some(msg => 
+                          msg.message.toLowerCase().includes(searchLower)
+                        )) return true;
+                        // Search in current action
+                        if (thread.currentAction && thread.currentAction.toLowerCase().includes(searchLower)) return true;
+                        return false;
+                      });
+                      
+                      if (filteredThreads.length === 0 && threadSearchQuery.trim()) {
+                        return (
+                          <div className="flex flex-col items-center justify-center py-8 text-center">
+                            <Search className="w-8 h-8 text-slate-300 mb-2" />
+                            <p className="text-xs text-slate-500">No threads found matching "{threadSearchQuery}"</p>
+                          </div>
+                        );
+                      }
+                      
+                      return filteredThreads.map((thread, idx) => {
                       const statusInfo = getThreadStatusIndicator(thread.status, thread.notificationDismissed, thread.id);
                       const isActive = replyThreadId === thread.id;
+                      const isMenuOpen = openMenuThreadId === thread.id;
+                      
+                      // Status pill color based on status
+                      const statusPillColor = {
+                        'executing': 'bg-blue-50 text-blue-600 border-blue-200',
+                        'clarification_needed': 'bg-yellow-50 text-yellow-600 border-yellow-200',
+                        'error': 'bg-red-50 text-red-600 border-red-200',
+                        'success': 'bg-green-50 text-green-600 border-green-200',
+                        'cancelled': 'bg-gray-100 text-gray-600 border-gray-200'
+                      }[thread.status] || 'bg-gray-100 text-gray-600 border-gray-200';
                       
                       return (
-                        <button
+                        <div
                           key={thread.id}
-                          onClick={() => {
-                            setReplyThreadId(thread.id);
-                            setActiveThreadId(thread.id);
-                            setIsReplyMode(true); // Automatically enter reply mode
-                            // Track that this thread has been viewed (like macOS Messages)
-                            setThreadViewTimestamps(prev => ({
-                              ...prev,
-                              [thread.id]: Date.now()
-                            }));
-                            // Hide any notification for this thread
-                            setVisibleNotifications(prev => prev.filter(id => id !== thread.id));
-                            // Mark notification as dismissed if it was completed
-                            if (thread.status === 'success' && !thread.notificationDismissed) {
-                              setThreads(prev => prev.map(t => 
-                                t.id === thread.id ? { ...t, notificationDismissed: true } : t
-                              ));
-                            }
-                          }}
-                          className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-left ${
+                          className={`group relative w-full flex items-center gap-2 px-2 py-1.5 rounded-lg transition-colors ${
                             isActive 
-                              ? 'bg-[#F06423]/10 hover:bg-[#F06423]/15 border border-[#F06423]/20' 
+                              ? 'bg-[#F06423]/10 border border-[#F06423]/20' 
                               : 'hover:bg-white/60 border border-transparent'
                           }`}
                         >
-                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                          {/* Main clickable area */}
+                          <button
+                            onClick={() => {
+                              setReplyThreadId(thread.id);
+                              setActiveThreadId(thread.id);
+                              setIsReplyMode(true); // Automatically enter reply mode
+                              setOpenMenuThreadId(null); // Close any open menu
+                              // Track that this thread has been viewed (like macOS Messages)
+                              setThreadViewTimestamps(prev => ({
+                                ...prev,
+                                [thread.id]: Date.now()
+                              }));
+                              // Hide any notification for this thread
+                              setVisibleNotifications(prev => prev.filter(id => id !== thread.id));
+                              // Mark notification as dismissed if it was completed
+                              if (thread.status === 'success' && !thread.notificationDismissed) {
+                                setThreads(prev => prev.map(t => 
+                                  t.id === thread.id ? { ...t, notificationDismissed: true } : t
+                                ));
+                              }
+                            }}
+                            className="flex items-center gap-2 flex-1 min-w-0 text-left"
+                          >
+                            {/* Status dot (optional) */}
                             {statusInfo.showDot && (
                               <div className={`w-2 h-2 rounded-full ${statusInfo.color} flex-shrink-0`} />
                             )}
-                            <div className={`flex-1 min-w-0 ${!statusInfo.showDot ? 'ml-4' : ''}`}>
-                              <p className="text-xs font-medium text-[#111111] truncate">{thread.command}</p>
-                              <p className="text-[10px] text-slate-600 mt-0.5">{statusInfo.label}</p>
-                            </div>
+                            
+                            {/* Thread title */}
+                            <p className={`text-xs font-medium text-[#111111] truncate flex-1 ${!statusInfo.showDot ? 'ml-4' : ''}`}>
+                              {removeTabMentions(thread.command)}
+                            </p>
+                            
+                            {/* Status pill */}
+                            <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full border ${statusPillColor} flex-shrink-0`}>
+                              {statusInfo.label}
+                            </span>
+                          </button>
+                          
+                          {/* Three-dot menu button - appears on hover */}
+                          <div className="relative flex-shrink-0">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenMenuThreadId(isMenuOpen ? null : thread.id);
+                              }}
+                              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-white/80 rounded transition-opacity"
+                            >
+                              <MoreVertical className="w-3.5 h-3.5 text-slate-600" />
+                            </button>
+                            
+                            {/* Dropdown menu */}
+                            {isMenuOpen && (
+                              <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-50">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setRenamingThreadId(thread.id);
+                                    setRenameValue(thread.command);
+                                    setOpenMenuThreadId(null);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 transition-colors"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                  Rename
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    // Delete the thread
+                                    setThreads(prev => prev.filter(t => t.id !== thread.id));
+                                    setOpenMenuThreadId(null);
+                                    // If this was the active thread, clear it
+                                    if (replyThreadId === thread.id) {
+                                      setReplyThreadId(null);
+                                      setIsReplyMode(false);
+                                    }
+                                  }}
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors"
+                                >
+                                  <Trash className="w-3.5 h-3.5" />
+                                  Delete
+                                </button>
+                              </div>
+                            )}
                           </div>
-                          <ChevronRight className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                        </button>
+                        </div>
                       );
-                    })}
+                    });
+                    })()}
                     </div>
+                    </div>
+                    </>
                   )}
                 </>
               ) : showSettingsModal ? (
@@ -2781,6 +3252,15 @@ export default function BrowserCopilot() {
 
                 {/* Spacer */}
                 <div className="flex-1" />
+                
+                {/* Esc button to close spotlight */}
+                <button
+                  onClick={() => setShowSpotlight(false)}
+                  className="ml-2 self-center px-1.5 py-0.5 text-[10px] bg-slate-200 text-slate-600 rounded font-medium transition-colors hover:bg-slate-300"
+                  title="Close (Esc)"
+                >
+                  Esc
+                </button>
               </div>
             </div>
             )}
@@ -2788,7 +3268,11 @@ export default function BrowserCopilot() {
             {/* Search input */}
             <div className="glass-input relative">
               <div className="flex items-start gap-3 px-4 py-3">
-                <CompositeLogoMark className="w-4 h-4 text-[#F06423] flex-shrink-0 mt-0.5" />
+                <VoiceInput 
+                  isActive={isVoiceActive}
+                  onClick={() => setIsVoiceActive(!isVoiceActive)}
+                  className="w-4 h-4 flex-shrink-0 mt-0.5"
+                />
                 <div className="flex-1 relative">
                   <div
                     ref={spotlightRef}
@@ -2884,6 +3368,12 @@ export default function BrowserCopilot() {
                       if (textWithoutMentions === '' && suggestionText) {
                         e.preventDefault();
                         
+                        // In reply mode, don't auto-insert current tab, just skip Tab functionality
+                        if (isReplyMode && suggestionText === 'Reply to Composite') {
+                          // Do nothing - don't insert anything
+                          return;
+                        }
+                        
                         // If suggestion is "@Current Tab", insert the current tab mention
                         if (suggestionText === '@Current Tab') {
                           const currentTabMention = `@[${currentTab.title}]`;
@@ -2915,21 +3405,23 @@ export default function BrowserCopilot() {
                       handleExecute(input);
                     }
                     if (e.key === 'Escape') {
-                      if (isReplyMode && replyThreadId) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (isReplyMode) {
+                        // Exit reply mode and go back to thread list, don't close spotlight
                         setIsReplyMode(false);
                         setReplyThreadId(null);
-                        setInput('');
-                      } else if (isReplyMode) {
-                        setIsReplyMode(false);
+                        setActiveThreadId(null);
                         setInput('');
                       } else {
+                        // Only close spotlight if not in reply mode
                         setShowSpotlight(false);
                       }
                     }
                   }}
                   className="outline-none text-sm text-[#111111] bg-transparent resize-none overflow-y-auto w-full relative z-10"
                   style={{
-                    minHeight: '40px',
+                    minHeight: '25px',
                     maxHeight: '120px',
                     lineHeight: '20px',
                     whiteSpace: 'pre-wrap',
@@ -2937,13 +3429,13 @@ export default function BrowserCopilot() {
                   }}
                 />
                 {/* Placeholder suggestion that appears after mentions */}
-                {!isReplyMode && (() => {
+                {(() => {
                   const textWithoutMentions = input.replace(/@\[[^\]]+\]/g, '').trim();
                   // Only show if input is empty OR only contains the current tab mention
                   const currentTabMention = `@[${currentTab.title}]`;
                   const isEmptyOrCurrentTab = input === '' || input.trim() === currentTabMention.trim();
                   
-                  if (textWithoutMentions === '' && suggestionText && isEmptyOrCurrentTab) {
+                  if (textWithoutMentions === '' && suggestionText && (isReplyMode || isEmptyOrCurrentTab)) {
                     // Use the actual rendered HTML from contentEditable to measure width accurately
                     const currentHTML = spotlightRef.current?.innerHTML || '';
                     return (
@@ -2953,8 +3445,8 @@ export default function BrowserCopilot() {
                             __html: currentHTML
                           }} />
                         )}
-                        <span className="text-slate-400 italic">
-                          {suggestionText} <span className="ml-1 inline-block bg-slate-100 border border-slate-200 rounded text-[10px] leading-none font-medium text-slate-600 not-italic" style={{ padding: '1px 4px' }}>tab</span>
+                        <span className={`text-slate-400 ${!isReplyMode ? 'italic' : ''}`}>
+                          {suggestionText} {!isReplyMode && <span className="ml-1 inline-block bg-slate-100 border border-slate-200 rounded text-[10px] leading-none font-medium text-slate-600 not-italic" style={{ padding: '1px 4px' }}>tab</span>}
                         </span>
                       </div>
                     );
@@ -2986,12 +3478,6 @@ export default function BrowserCopilot() {
                       <ArrowUpCircle className="w-5 h-5 text-slate-700" />
                     </button>
                   )}
-                  <button
-                    onClick={() => setShowSpotlight(false)}
-                    className="p-1 hover:bg-[#F8F7F4] rounded transition-colors"
-                  >
-                    <X className="w-4 h-4 text-slate-600" />
-                  </button>
                 </div>
               </div>
             </div>
@@ -3176,6 +3662,59 @@ export default function BrowserCopilot() {
               
               return null;
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Rename Thread Modal */}
+      {renamingThreadId && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 p-6 w-96 max-w-[90vw]">
+            <h3 className="text-base font-semibold text-[#111111] mb-4">Rename Thread</h3>
+            <input
+              type="text"
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  // Save rename
+                  setThreads(prev => prev.map(t => 
+                    t.id === renamingThreadId ? { ...t, command: renameValue } : t
+                  ));
+                  setRenamingThreadId(null);
+                  setRenameValue('');
+                } else if (e.key === 'Escape') {
+                  // Cancel rename
+                  setRenamingThreadId(null);
+                  setRenameValue('');
+                }
+              }}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#F06423] focus:border-transparent"
+              autoFocus
+            />
+            <div className="flex gap-2 mt-4 justify-end">
+              <button
+                onClick={() => {
+                  setRenamingThreadId(null);
+                  setRenameValue('');
+                }}
+                className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setThreads(prev => prev.map(t => 
+                    t.id === renamingThreadId ? { ...t, command: renameValue } : t
+                  ));
+                  setRenamingThreadId(null);
+                  setRenameValue('');
+                }}
+                className="px-4 py-2 text-sm font-medium bg-[#F06423] text-white rounded-lg hover:bg-[#F06423]/90 transition-colors"
+              >
+                Save
+              </button>
+            </div>
           </div>
         </div>
       )}

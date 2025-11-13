@@ -829,6 +829,24 @@ https://docs.google.com/spreadsheets/d/1cvEtXx8mMqafRfdUIGpSfNfA7V1uwUDDoRCnWCB2
               </div>
             </div>
           </div>
+
+          <div class="settings-section">
+            <div class="section-header">
+              <h3 class="section-title">Notifications</h3>
+              <p class="section-description">Manage your notification preferences</p>
+            </div>
+            <div class="section-content">
+              <div class="toggle-group">
+                <div class="toggle-info">
+                  <h4>Enable Notifications</h4>
+                  <p>Show desktop notifications for task updates and important events</p>
+                </div>
+                <div class="toggle-switch active" id="notifications-toggle" onclick="toggleNotifications(this)">
+                  <div class="toggle-slider"></div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1091,6 +1109,32 @@ https://docs.google.com/spreadsheets/d/1cvEtXx8mMqafRfdUIGpSfNfA7V1uwUDDoRCnWCB2
     function toggleSwitch(element) {
       element.classList.toggle('active');
     }
+
+    // Notifications Toggle
+    function toggleNotifications(element) {
+      element.classList.toggle('active');
+      const isEnabled = element.classList.contains('active');
+      
+      // Save to localStorage
+      localStorage.setItem('compositeNotificationsEnabled', isEnabled);
+      
+      // Show feedback
+      console.log('Notifications', isEnabled ? 'enabled' : 'disabled');
+    }
+
+    // Load notification preference on page load
+    window.addEventListener('DOMContentLoaded', function() {
+      const notificationsEnabled = localStorage.getItem('compositeNotificationsEnabled');
+      const toggle = document.getElementById('notifications-toggle');
+      
+      if (notificationsEnabled !== null) {
+        if (notificationsEnabled === 'false') {
+          toggle.classList.remove('active');
+        } else {
+          toggle.classList.add('active');
+        }
+      }
+    });
 
     // Theme Menu
     function toggleThemeMenu() {
